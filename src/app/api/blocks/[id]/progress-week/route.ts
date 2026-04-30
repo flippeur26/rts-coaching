@@ -163,7 +163,8 @@ export async function POST(
   }
 
   for (const { id, ...data } of updates) {
-    const { error } = await supabase.from('sets').update(data).eq('id', id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await supabase.from('sets').update(data as any).eq('id', id)
     if (error) return ERRORS.SERVER()
   }
 

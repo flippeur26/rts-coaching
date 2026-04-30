@@ -885,7 +885,7 @@ interface ProgRow {
 
 function ProgressionPanel({
   exerciseName,
-  sets,
+  sets: _sets,
   blockId,
   currentWeek,
   weightEnabled,

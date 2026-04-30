@@ -579,7 +579,7 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
                   Aucun exercice prescrit pour cette séance.
                 </div>
               ) : (
-                slots.map((slot, idx) => (
+                slots.map((slot) => (
                   <div
                     key={slot.localId}
                     className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_320px]"

@@ -135,7 +135,6 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
   const [exerciseSelectorOpen, setExerciseSelectorOpen] = useState<{ slotId: string | null } | null>(null)
 
   // index global du slot ouvert pour la navigation flèches
-  const [activeSlotIndex, setActiveSlotIndex] = useState(0)
 
   const totalsRef = useRef<HTMLDivElement>(null)
 
@@ -584,7 +583,6 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
                   <div
                     key={slot.localId}
                     className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_320px]"
-                    onMouseEnter={() => setActiveSlotIndex(idx)}
                   >
                     <div className={savingSetId && slot.sets.some(s => s.id === savingSetId) ? 'opacity-70' : ''}>
                       <SlotCardV2

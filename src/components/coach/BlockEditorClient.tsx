@@ -22,7 +22,7 @@ import { fr } from 'date-fns/locale'
 import type { Block, Session, Set as SetRow } from '@/types/database'
 import SeanceModal from '@/components/calendrier/SeanceModal'
 import LiveMetricsPanel from './LiveMetricsPanel'
-import { Plus, ChevronLeft, ChevronRight } from '@/components/ui/Icon'
+import { Plus } from '@/components/ui/Icon'
 
 type SessionWithSets = Session & { sets: SetRow[] }
 
@@ -37,7 +37,6 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
   const [sessions, setSessions] = useState<SessionWithSets[]>(initialSessions)
   const [activeWeek, setActiveWeek] = useState<number>(1)
   const [openSession, setOpenSession] = useState<SessionWithSets | null>(null)
-  const [generating, setGenerating] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const totalWeeks = block.total_weeks ?? 4
@@ -122,36 +121,6 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
     [athleteId, block.id, sessionsByWeek, reload],
   )
 
-  /* -------- générer les semaines 2..N depuis la semaine 1 -------- */
-  const generateAllWeeks = useCallback(
-    async (overwrite: boolean) => {
-      if (!sessionsByWeek[1] || sessionsByWeek[1].length === 0) {
-        alert('Définissez d\'abord les séances de la semaine 1 (template) avant de générer.')
-        return
-      }
-      const targets = []
-      for (let w = 2; w <= totalWeeks; w++) targets.push(w)
-
-      setGenerating(true)
-      const res = await fetch(`/api/blocks/${block.id}/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          template_week: 1,
-          target_weeks: targets,
-          overwrite,
-        }),
-      })
-      setGenerating(false)
-      if (!res.ok) {
-        const e = await res.json().catch(() => null)
-        alert(e?.error ?? 'Erreur de génération')
-        return
-      }
-      await reload()
-    },
-    [block.id, sessionsByWeek, totalWeeks, reload],
-  )
 
   /* -------- supprimer une séance -------- */
   const deleteSession = useCallback(

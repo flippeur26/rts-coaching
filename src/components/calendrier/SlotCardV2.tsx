@@ -12,7 +12,7 @@
  *   └──────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 
-import { useMemo, useState, useRef, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Move,
   Plus,
@@ -305,7 +305,6 @@ export default function SlotCardV2({
       {progressionOpen && blockId && currentWeek && (
         <ProgressionPanel
           exerciseName={exerciseName}
-          sets={sets}
           blockId={blockId}
           currentWeek={currentWeek}
           weightEnabled={weightEnabled}
@@ -710,7 +709,7 @@ function ModifierPanel({
     if (readonly) return
     setSelected(prev => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) { next.delete(key) } else { next.add(key) }
       return next
     })
   }
@@ -896,7 +895,6 @@ function ProgressionPanel({
   onClose,
 }: {
   exerciseName: string
-  sets: SlotSetDraft[]
   blockId: string
   currentWeek: number
   weightEnabled: boolean
@@ -908,7 +906,6 @@ function ProgressionPanel({
   const [copyModifiers, setCopyModifiers] = useState(true)
   const [detectPerf, setDetectPerf] = useState(true)
   const [applyToAll, setApplyToAll] = useState(true)
-  const [applying, setApplying] = useState(false)
 
   const setRow = (field: keyof typeof rows, patch: Partial<ProgRow>) =>
     setRows(prev => ({ ...prev, [field]: { ...prev[field], ...patch } }))
@@ -1008,8 +1005,8 @@ function ProgressionPanel({
         ))}
       </div>
 
-      <button onClick={handleApply} disabled={applying} className="btn-primary w-full py-1.5 text-xs">
-        {applying ? 'Application…' : 'Appliquer à la semaine suivante'}
+      <button onClick={handleApply} className="btn-primary w-full py-1.5 text-xs">
+        Appliquer à la semaine suivante
       </button>
     </div>
   )

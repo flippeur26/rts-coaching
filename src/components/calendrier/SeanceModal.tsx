@@ -591,8 +591,8 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
                         category={slot.category}
                         sets={slot.sets}
                         isCoach={isCoach}
-                        blockId={blockId || session.block_id}
-                        currentWeek={currentWeek || session.week_in_block}
+                        blockId={blockId || session.block_id ?? undefined}
+                        currentWeek={currentWeek || session.week_in_block ?? undefined}
                         onSetChange={(i, field, value) => updateSet(slot.localId, i, field, value)}
                         onSetBlur={i => saveSet(slot.localId, i)}
                         onAddSet={() => addSetToSlot(slot.localId)}

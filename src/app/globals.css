@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================================
+   RTS Coaching — Design tokens
+   ========================================================================= */
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  --card: #111113;
+  --card-shade: #16161a;
+  --card-border: #2a2a30;
+
+  --muted: #1c1c20;
+  --muted-foreground: #8a8a93;
+
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #f97316;
+
+  --accent: #1f1f24;
+  --accent-foreground: #fafafa;
+
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+
+  --destructive: #ef4444;
+
+  /* Mouvement (catégorie → palette) */
+  --mvmt-squat: #a855f7;
+  --mvmt-squat-bg: rgba(168, 85, 247, 0.08);
+  --mvmt-squat-border: rgba(168, 85, 247, 0.3);
+  --mvmt-squat-fg: #d8b4fe;
+  --mvmt-squat-shadow: rgba(168, 85, 247, 0.5);
+
+  --mvmt-hinge: #f43f5e;
+  --mvmt-hinge-bg: rgba(244, 63, 94, 0.08);
+  --mvmt-hinge-border: rgba(244, 63, 94, 0.3);
+  --mvmt-hinge-fg: #fda4af;
+  --mvmt-hinge-shadow: rgba(244, 63, 94, 0.5);
+
+  --mvmt-hpush: #06b6d4;
+  --mvmt-hpush-bg: rgba(6, 182, 212, 0.08);
+  --mvmt-hpush-border: rgba(6, 182, 212, 0.3);
+  --mvmt-hpush-fg: #67e8f9;
+  --mvmt-hpush-shadow: rgba(6, 182, 212, 0.5);
+
+  --mvmt-hpull: #22c55e;
+  --mvmt-hpull-bg: rgba(34, 197, 94, 0.08);
+  --mvmt-hpull-border: rgba(34, 197, 94, 0.3);
+  --mvmt-hpull-fg: #86efac;
+  --mvmt-hpull-shadow: rgba(34, 197, 94, 0.5);
+
+  --mvmt-vpush: #3b82f6;
+  --mvmt-vpush-bg: rgba(59, 130, 246, 0.08);
+  --mvmt-vpush-border: rgba(59, 130, 246, 0.3);
+  --mvmt-vpush-fg: #93c5fd;
+  --mvmt-vpush-shadow: rgba(59, 130, 246, 0.5);
+
+  --mvmt-vpull: #f59e0b;
+  --mvmt-vpull-bg: rgba(245, 158, 11, 0.08);
+  --mvmt-vpull-border: rgba(245, 158, 11, 0.3);
+  --mvmt-vpull-fg: #fcd34d;
+  --mvmt-vpull-shadow: rgba(245, 158, 11, 0.5);
+
+  --mvmt-acc: #71717a;
+  --mvmt-acc-bg: rgba(113, 113, 122, 0.1);
+  --mvmt-acc-border: rgba(113, 113, 122, 0.3);
+  --mvmt-acc-fg: #d4d4d8;
+  --mvmt-acc-shadow: rgba(113, 113, 122, 0.4);
+
+  --mvmt-cardio: #ef4444;
+  --mvmt-cardio-bg: rgba(239, 68, 68, 0.08);
+  --mvmt-cardio-border: rgba(239, 68, 68, 0.3);
+  --mvmt-cardio-fg: #fca5a5;
+  --mvmt-cardio-shadow: rgba(239, 68, 68, 0.5);
+
+  /* Entrées calendrier (workout / trac / bw / comp / note) */
+  --entry-workout: #06b6d4;
+  --entry-trac: #ef4444;
+  --entry-bw: #22c55e;
+  --entry-comp: #f59e0b;
+  --entry-note: #a855f7;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* =========================================================================
+   Composants partagés
+   ========================================================================= */
+@layer components {
+  .btn-icon {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-icon-danger {
+    @apply hover:bg-red-950 hover:text-red-400;
+  }
+  .btn-primary {
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-md bg-orange-600 px-4 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-orange-500 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-4 text-sm font-medium text-zinc-200 shadow-xs transition-colors hover:bg-zinc-800 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .input-base {
+    @apply h-9 w-full min-w-0 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1 text-sm text-white shadow-xs outline-none transition-colors placeholder:text-zinc-500 focus-visible:ring-[3px] focus-visible:ring-orange-500/40 focus-visible:border-orange-500;
+  }
+  .input-target {
+    @apply h-9 w-full min-w-0 rounded-md border border-zinc-800/50 bg-zinc-900/40 px-3 py-1 text-center text-sm shadow-xs outline-none transition-colors placeholder:text-zinc-600;
+    color: color-mix(in srgb, var(--muted-foreground), transparent 35%);
+  }
+  .input-actual {
+    @apply h-9 w-full min-w-0 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-1 text-center text-sm text-white shadow-xs outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-orange-500/40 focus-visible:border-orange-500;
+  }
+  .card-slot {
+    @apply rounded-xl border bg-gradient-to-t from-[var(--card-shade)] to-[var(--card)] shadow-xs;
+    border-color: var(--slot-mvmt-border, var(--card-border));
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+}

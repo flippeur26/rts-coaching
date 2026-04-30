@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(curl -s -X POST http://localhost:3003/api/athletes/link -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\"}')",
+      "Bash(pkill -f \"next dev\")"
+    ]
+  }
+}

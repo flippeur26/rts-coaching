@@ -76,7 +76,8 @@ export async function POST(
   if (allError) return ERRORS.SERVER()
 
   const sessionsByWeek = new Map<number, SessionRow[]>()
-  for (const session of (allSessions ?? []) as SessionRow[]) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const session of (allSessions ?? []) as any[] as SessionRow[]) {
     const week = session.week_in_block ?? 0
     if (!sessionsByWeek.has(week)) sessionsByWeek.set(week, [])
     sessionsByWeek.get(week)!.push(session)

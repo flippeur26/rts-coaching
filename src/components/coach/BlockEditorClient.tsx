@@ -16,11 +16,11 @@
  *   - Aside : LiveMetricsPanel
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format, parseISO, addDays, startOfWeek } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { Block, Session, Set as SetRow } from '@/types/database'
-import SeanceModal from '@/components/calendrier/SeanceModal'
+import SeanceModal, { type ProgressionConfigEntry } from '@/components/calendrier/SeanceModal'
 import LiveMetricsPanel from './LiveMetricsPanel'
 import { Plus } from '@/components/ui/Icon'
 
@@ -35,11 +35,27 @@ interface Props {
 export default function BlockEditorClient({ initialBlock, initialSessions, athleteId }: Props) {
   const [block, setBlock] = useState<Block>(initialBlock)
   const [sessions, setSessions] = useState<SessionWithSets[]>(initialSessions)
+  const [progressionConfigs, setProgressionConfigs] = useState<ProgressionConfigEntry[]>([])
   const [activeWeek, setActiveWeek] = useState<number>(1)
   const [openSession, setOpenSession] = useState<SessionWithSets | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const totalWeeks = block.total_weeks ?? 4
+
+  // Charger les configs de progression au mount (initialSessions n'inclut pas les configs)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/blocks/${block.id}/full`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (cancelled || !data) return
+        setProgressionConfigs(data.progression_configs ?? [])
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [block.id])
 
   /** Sessions groupées par semaine */
   const sessionsByWeek = useMemo(() => {
@@ -63,16 +79,63 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
 
   const currentWeekSessions = sessionsByWeek[activeWeek] ?? []
 
-  /* -------- recharger sessions ---------- */
+  /* -------- recharger sessions (neutre) ---------- */
   const reload = useCallback(async () => {
     const res = await fetch(`/api/blocks/${block.id}/full`)
-    if (res.ok) {
-      const data = await res.json()
-      setBlock(data.block)
-      setSessions(data.sessions)
-      setRefreshKey(k => k + 1)
-    }
+    if (!res.ok) return
+    const data = await res.json()
+    setBlock(data.block)
+    setSessions(data.sessions)
+    setProgressionConfigs(data.progression_configs ?? [])
+    setRefreshKey(k => k + 1)
   }, [block.id])
+
+  /* -------- fetch + set state helper ---------- */
+  const fetchAndSet = useCallback(async () => {
+    const res = await fetch(`/api/blocks/${block.id}/full`)
+    if (!res.ok) return
+    const data = await res.json()
+    setBlock(data.block)
+    setSessions(data.sessions)
+    setProgressionConfigs(data.progression_configs ?? [])
+    setRefreshKey(k => k + 1)
+  }, [block.id])
+
+  /* -------- synchronise S2..SN depuis S1 (avec configs persistées) ---------- */
+  const syncFromS1 = useCallback(async () => {
+    const res = await fetch(`/api/blocks/${block.id}/full`)
+    if (!res.ok) return
+    const data = await res.json()
+    setBlock(data.block)
+    setSessions(data.sessions)
+    setProgressionConfigs(data.progression_configs ?? [])
+    setRefreshKey(k => k + 1)
+
+    const s1Sets = (data.sessions as SessionWithSets[])
+      .filter(s => s.week_in_block === 1)
+      .flatMap(s => s.sets ?? [])
+    if (s1Sets.length === 0) return
+
+    const totalWks = (data.block.total_weeks ?? 4) as number
+    if (totalWks <= 1) return
+
+    const genRes = await fetch(`/api/blocks/${block.id}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_week: 1, use_e1rm: true, remove_orphans: true }),
+    })
+    if (genRes.ok) await fetchAndSet()
+  }, [block.id, fetchAndSet])
+
+  /* -------- recalculer poids S2+ via E1RM (après fluctuation) ---------- */
+  const recalcWeights = useCallback(async () => {
+    await fetch(`/api/blocks/${block.id}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_week: 1, recalc_weights_only: true, use_e1rm: true }),
+    })
+    await fetchAndSet()
+  }, [block.id, fetchAndSet])
 
   /* -------- créer une nouvelle séance à une date donnée dans la semaine active -------- */
   const addSessionToDay = useCallback(
@@ -165,6 +228,7 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
             onAdd={(date) => addSessionToDay(activeWeek, date)}
             onDelete={deleteSession}
             blockStart={block.start_date}
+            onRecalc={activeWeek === 1 ? recalcWeights : undefined}
           />
         </div>
 
@@ -183,8 +247,11 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
       {openSession && (
         <SeanceModal
           session={openSession}
+          blockId={block.id}
+          currentWeek={openSession.week_in_block ?? undefined}
+          progressionConfigs={progressionConfigs}
           onClose={() => setOpenSession(null)}
-          onUpdate={reload}
+          onUpdate={openSession.week_in_block === 1 ? syncFromS1 : reload}
           isCoach
         />
       )}
@@ -267,6 +334,7 @@ function WeekSessions({
   onAdd,
   onDelete,
   blockStart,
+  onRecalc,
 }: {
   weekNum: number
   sessions: SessionWithSets[]
@@ -274,6 +342,7 @@ function WeekSessions({
   onAdd: (date: string) => void
   onDelete: (id: string) => void
   blockStart: string
+  onRecalc?: () => void
 }) {
   // Grille hebdo Lun → Dim : on aligne sur le lundi calendaire de la semaine où tombe wkStart
   const wkStart = addDays(parseISO(blockStart), (weekNum - 1) * 7)
@@ -302,6 +371,15 @@ function WeekSessions({
             {format(monday, 'EEE d MMM', { locale: fr })} → {format(addDays(monday, 6), 'EEE d MMM', { locale: fr })}
           </p>
         </div>
+        {onRecalc && (
+          <button
+            onClick={onRecalc}
+            className="btn-secondary text-xs"
+            title="Recalculer les poids des semaines 2+ via E1RM"
+          >
+            Recalculer poids (E1RM)
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">

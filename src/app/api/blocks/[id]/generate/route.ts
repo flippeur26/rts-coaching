@@ -2,25 +2,30 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { ok, ERRORS } from '@/lib/api-helpers'
 import { z } from 'zod'
+import { recommendLoad, roundToStep } from '@/lib/rts-calc'
+import { applyS1ToWeeks } from '@/lib/progression-sync'
 
 /**
  * POST /api/blocks/[id]/generate
  *
- * Crée des séances pour les semaines 2..N en dupliquant un template (semaine 1).
+ * Synchronise S2..SN depuis S1 (template). Délègue à `applyS1ToWeeks` qui
+ * applique les deltas persistés dans `block_progression_config`.
+ *
  * Body :
  *   {
- *     template_week: 1,                      // semaine source (par défaut 1)
- *     target_weeks: number[],                // ex: [2, 3, 4]  → semaines à générer
- *     overwrite?: boolean                    // si true, supprime d'abord les séances existantes des semaines cibles
+ *     template_week?: number          // défaut 1
+ *     target_weeks?: number[]         // défaut: [2..total_weeks]
+ *     use_e1rm?: boolean              // calcule weight via E1RM si pas de delta weight
+ *     remove_orphans?: boolean        // défaut true — supprime sessions/sets orphelins
+ *     recalc_weights_only?: boolean   // recalcule UNIQUEMENT le poids depuis E1RM (S2+)
  *   }
- *
- * Idempotent par défaut (overwrite=false) : si une séance existe déjà sur (block, week, session_number),
- * on saute la duplication.
  */
 const schema = z.object({
   template_week: z.number().int().min(1).max(20).default(1),
-  target_weeks: z.array(z.number().int().min(1).max(20)).min(1),
-  overwrite: z.boolean().optional().default(false),
+  target_weeks: z.array(z.number().int().min(1).max(20)).optional(),
+  use_e1rm: z.boolean().optional().default(false),
+  remove_orphans: z.boolean().optional().default(true),
+  recalc_weights_only: z.boolean().optional().default(false),
 })
 
 export async function POST(
@@ -36,134 +41,71 @@ export async function POST(
   const { id } = await params
   const { data: block } = await supabase
     .from('blocks')
-    .select('id, coach_id, athlete_id, start_date')
+    .select('id, coach_id, athlete_id')
     .eq('id', id)
     .single()
   if (!block) return ERRORS.NOT_FOUND('Bloc')
   if (block.coach_id !== user.id) return ERRORS.FORBIDDEN()
 
-  const body = await request.json()
+  const body = await request.json().catch(() => ({}))
   const parsed = schema.safeParse(body)
   if (!parsed.success) return ERRORS.INVALID(parsed.error.issues[0].message)
 
-  const { template_week, target_weeks, overwrite } = parsed.data
+  const { template_week, target_weeks, use_e1rm, remove_orphans, recalc_weights_only } = parsed.data
 
-  // Charger les séances du template
-  const { data: tmplSessions, error: tErr } = await supabase
-    .from('sessions')
-    .select('*, sets(*)')
-    .eq('block_id', id)
-    .eq('week_in_block', template_week)
-    .order('session_number', { ascending: true })
-    .order('scheduled_date', { ascending: true })
+  // Mode recalcul poids uniquement (E1RM fluctuation)
+  if (recalc_weights_only) {
+    const { data: e1rmRows } = await supabase
+      .from('exercise_e1rm')
+      .select('exercise_name, e1rm_kg')
+      .eq('athlete_id', block.athlete_id)
+    const e1rmMap = new Map<string, number>(
+      (e1rmRows ?? []).map((r) => [r.exercise_name, r.e1rm_kg]),
+    )
 
-  if (tErr) return ERRORS.SERVER()
-  if (!tmplSessions || tmplSessions.length === 0) {
-    return ERRORS.INVALID(`Aucune séance trouvée en semaine ${template_week} pour servir de template`)
-  }
+    const { data: allSessions } = await supabase
+      .from('sessions')
+      .select('id, week_in_block, sets(id, exercise_name, reps_prescribed, rpe_prescribed)')
+      .eq('block_id', id)
+      .neq('week_in_block', template_week)
 
-  // Décalage de date pour chaque semaine cible : weekDelta * 7 jours
-  const startDate = new Date(block.start_date + 'T00:00:00Z')
-  void startDate
-
-  const created: { week: number; sessions: number }[] = []
-
-  for (const targetWeek of target_weeks) {
-    if (targetWeek === template_week) continue
-
-    // Si overwrite : on supprime d'abord les séances existantes de cette semaine cible
-    if (overwrite) {
-      await supabase
-        .from('sessions')
-        .delete()
-        .eq('block_id', id)
-        .eq('week_in_block', targetWeek)
-    } else {
-      // Skip les séances déjà existantes (même session_number)
-      const { data: existing } = await supabase
-        .from('sessions')
-        .select('session_number')
-        .eq('block_id', id)
-        .eq('week_in_block', targetWeek)
-      const existingNums = new Set((existing ?? []).map(s => s.session_number))
-      if (existingNums.size === tmplSessions.length) {
-        // Toutes les séances existent déjà → rien à faire
-        created.push({ week: targetWeek, sessions: 0 })
-        continue
-      }
-    }
-
-    let createdCount = 0
-    for (const tmpl of tmplSessions) {
-      // Calcule la date cible : on garde le même jour de la semaine, en ajoutant
-      // (targetWeek - template_week) * 7 jours.
-      const tmplDate = new Date(tmpl.scheduled_date + 'T00:00:00Z')
-      const diff = (targetWeek - template_week) * 7
-      const newDate = new Date(tmplDate)
-      newDate.setUTCDate(tmplDate.getUTCDate() + diff)
-      const newDateStr = newDate.toISOString().slice(0, 10)
-
-      // Si non-overwrite + skip si la session_number existe déjà
-      if (!overwrite) {
-        const { data: dup } = await supabase
-          .from('sessions')
-          .select('id')
-          .eq('block_id', id)
-          .eq('week_in_block', targetWeek)
-          .eq('session_number', tmpl.session_number ?? 0)
-          .maybeSingle()
-        if (dup) continue
-      }
-
-      const { data: newSession, error: insErr } = await supabase
-        .from('sessions')
-        .insert({
-          athlete_id: block.athlete_id,
-          coach_id: block.coach_id,
-          block_id: id,
-          scheduled_date: newDateStr,
-          week_in_block: targetWeek,
-          session_number: tmpl.session_number,
-          notes_coach: tmpl.notes_coach,
-          status: 'prescribed' as const,
-        })
-        .select()
-        .single()
-
-      if (insErr || !newSession) continue
-      createdCount++
-
-      // Dupliquer les sets (prescription seulement, pas le réalisé)
-      const tmplSets = ((tmpl as { sets?: unknown }).sets ?? []) as unknown as Array<{
-        exercise_name: string
-        exercise_format: string | null
-        set_number: number
-        weight_prescribed_kg: number | null
+    let updated = 0
+    type Row = {
+      id: string
+      sets?: Array<{
+        id: string
+        exercise_name: string | null
         reps_prescribed: number | null
         rpe_prescribed: number | null
-        tempo: string | null
-        rom_prescribed: string | null
       }>
-
-      if (tmplSets.length > 0) {
-        await supabase.from('sets').insert(
-          tmplSets.map(s => ({
-            session_id: newSession.id,
-            exercise_name: s.exercise_name,
-            exercise_format: s.exercise_format,
-            set_number: s.set_number,
-            weight_prescribed_kg: s.weight_prescribed_kg,
-            reps_prescribed: s.reps_prescribed,
-            rpe_prescribed: s.rpe_prescribed,
-            tempo: s.tempo,
-            rom_prescribed: s.rom_prescribed,
-          })),
-        )
+    }
+    for (const session of (allSessions ?? []) as unknown as Row[]) {
+      for (const s of session.sets ?? []) {
+        if (!s.exercise_name || !s.reps_prescribed || !s.rpe_prescribed) continue
+        const e1rm = e1rmMap.get(s.exercise_name)
+        if (!e1rm || e1rm <= 0) continue
+        const rec = recommendLoad(e1rm, s.reps_prescribed, s.rpe_prescribed)
+        if (!rec) continue
+        await supabase
+          .from('sets')
+          .update({ weight_prescribed_kg: roundToStep(rec) })
+          .eq('id', s.id)
+        updated++
       }
     }
-
-    created.push({ week: targetWeek, sessions: createdCount })
+    return ok({ recalculated: updated })
   }
 
-  return ok({ generated: created }, 201)
+  // Sync S1 → S2..SN via helper (lit configs persistées + applique deltas)
+  try {
+    const result = await applyS1ToWeeks(supabase, id, {
+      template_week,
+      target_weeks,
+      use_e1rm,
+      remove_orphans,
+    })
+    return ok(result)
+  } catch {
+    return ERRORS.SERVER()
+  }
 }

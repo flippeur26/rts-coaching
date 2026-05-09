@@ -10,7 +10,7 @@
  * - tab "Bilan" (sensation, poids de corps, notes athlète)
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { Session, Set as SetRow, Exercise } from '@/types/database'
@@ -20,8 +20,11 @@ import SlotCardV2, {
   emptySetDraft,
 } from './SlotCardV2'
 import WorkoutPlanner from './WorkoutPlanner'
+import { aggregateMany } from '@/lib/rts-aggregate'
 import { ExerciseSelectorModal } from '@/components/coach/ExerciseSelectorModal'
-import { Plus, X, ChevronLeft, ChevronRight } from '@/components/ui/Icon'
+import { Plus, X, ChevronLeft, ChevronRight, Copy, Bookmark } from '@/components/ui/Icon'
+import SaveTemplateDialog from './SaveTemplateDialog'
+import CloneSessionDialog from './CloneSessionDialog'
 
 type SessionWithSets = Session & { sets: SetRow[] }
 
@@ -34,10 +37,24 @@ interface Slot {
   sets: SlotSetDraft[]
 }
 
+export interface ProgressionConfigEntry {
+  exercise_name: string
+  weight_enabled: boolean
+  weight_delta: number
+  weight_type: 'kg' | 'percent'
+  reps_delta: number
+  rpe_delta: number
+  sets_delta: number
+  copy_modifiers: boolean
+  detect_overperformance: boolean
+}
+
 interface Props {
   session: SessionWithSets
   blockId?: string
   currentWeek?: number
+  /** Configs de progression persistées pour ce bloc (clé = exercise_name) */
+  progressionConfigs?: ProgressionConfigEntry[]
   onClose: () => void
   onUpdate: () => void
   isCoach: boolean
@@ -117,7 +134,12 @@ function slotsToFlatSetsPayload(slots: Slot[]) {
 
 /* ----------------- composant ------------------------------------------- */
 
-export default function SeanceModal({ session, blockId, currentWeek, onClose, onUpdate, isCoach }: Props) {
+export default function SeanceModal({ session, blockId, currentWeek, progressionConfigs, onClose, onUpdate, isCoach }: Props) {
+  const progressionMap = useMemo(() => {
+    const m = new Map<string, ProgressionConfigEntry>()
+    for (const c of progressionConfigs ?? []) m.set(c.exercise_name, c)
+    return m
+  }, [progressionConfigs])
   const [slots, setSlots] = useState<Slot[]>(() => setsToSlots(session.sets ?? []))
   // IDs des sets présents au chargement — sert à détecter ceux supprimés
   // côté UI pour les DELETE en DB lors de savePrescription.
@@ -133,10 +155,14 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
   const [savingSetId, setSavingSetId] = useState<string | null>(null)
   const [plannerSlotId, setPlannerSlotId] = useState<string | null>(null)
   const [exerciseSelectorOpen, setExerciseSelectorOpen] = useState<{ slotId: string | null } | null>(null)
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
+  const [cloneOpen, setCloneOpen] = useState(false)
 
   // index global du slot ouvert pour la navigation flèches
 
   const totalsRef = useRef<HTMLDivElement>(null)
+  const debounceTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const saveSetRef = useRef<((slotId: string, setIndex: number) => void) | null>(null)
 
   /* ---------- mutations slots ---------- */
 
@@ -149,6 +175,14 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
           return { ...slot, sets }
         }),
       )
+      const key = `${slotId}-${setIndex}`
+      const existing = debounceTimersRef.current.get(key)
+      if (existing) clearTimeout(existing)
+      const timer = setTimeout(() => {
+        debounceTimersRef.current.delete(key)
+        saveSetRef.current?.(slotId, setIndex)
+      }, 500)
+      debounceTimersRef.current.set(key, timer)
     },
     [],
   )
@@ -330,6 +364,59 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
     [slots, isCoach],
   )
 
+  saveSetRef.current = saveSet
+
+  // Au montage: recalculer les sets qui ont ACTUAL complet mais stress NULL (données orphelines)
+  useEffect(() => {
+    const stale = (session.sets ?? []).filter(
+      s =>
+        s.weight_actual_kg != null &&
+        s.reps_actual != null &&
+        s.rpe_actual != null &&
+        s.central_stress == null,
+    )
+    if (stale.length === 0) return
+
+    Promise.all(
+      stale.map(s =>
+        fetch(`/api/sets/${s.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            weight_actual_kg: s.weight_actual_kg,
+            reps_actual: s.reps_actual,
+            rpe_actual: s.rpe_actual,
+          }),
+        }).then(r => (r.ok ? r.json() : null)),
+      ),
+    ).then(results => {
+      const updatedMap = new Map(
+        (results as (typeof session.sets[0] | null)[])
+          .filter(Boolean)
+          .map(r => [r!.id, r!]),
+      )
+      setSlots(prev =>
+        prev.map(slot => ({
+          ...slot,
+          sets: slot.sets.map(ss => {
+            const u = ss.id ? updatedMap.get(ss.id) : null
+            if (!u) return ss
+            return {
+              ...ss,
+              e1rm_kg: u.e1rm_kg,
+              volume_load_kg: u.volume_load_kg,
+              central_stress: u.central_stress,
+              peripheral_stress: u.peripheral_stress,
+              total_stress: u.total_stress,
+              rpe_realization_pct: u.rpe_realization_pct,
+            }
+          }),
+        })),
+      )
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const savingRef = useRef(false)
   async function savePrescription() {
     if (!isCoach) return
@@ -458,15 +545,8 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
     onClose()
   }
 
-  /* ---------- totaux séance ---------- */
-  const totals = useMemo(() => {
-    const allSets = slots.flatMap(s => s.sets)
-    const tonnage = allSets.reduce((sum, s) => sum + (s.volume_load_kg ?? 0), 0)
-    const cs = allSets.reduce((sum, s) => sum + (s.central_stress ?? 0), 0)
-    const ps = allSets.reduce((sum, s) => sum + (s.peripheral_stress ?? 0), 0)
-    const ts = allSets.reduce((sum, s) => sum + (s.total_stress ?? 0), 0)
-    return { tonnage, cs, ps, ts }
-  }, [slots])
+  /* ---------- totaux séance (live, pré-save) ---------- */
+  const totals = useMemo(() => aggregateMany(slots), [slots])
 
   const plannerSlot = plannerSlotId ? slots.find(s => s.localId === plannerSlotId) : null
   const plannerInitialE1RM = useMemo(() => {
@@ -593,6 +673,8 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
                         isCoach={isCoach}
                         blockId={blockId || (session.block_id ?? undefined)}
                         currentWeek={currentWeek || (session.week_in_block ?? undefined)}
+                        initialProgression={progressionMap.get(slot.exerciseName) ?? null}
+                        onProgressionApplied={onUpdate}
                         onSetChange={(i, field, value) => updateSet(slot.localId, i, field, value)}
                         onSetBlur={i => saveSet(slot.localId, i)}
                         onAddSet={() => addSetToSlot(slot.localId)}
@@ -625,12 +707,31 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
               )}
 
               {/* Totaux */}
-              {(totals.tonnage || totals.ts) ? (
-                <div ref={totalsRef} className="mt-2 grid grid-cols-2 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 sm:grid-cols-4">
-                  <Stat label="Tonnage total" value={totals.tonnage ? `${totals.tonnage.toFixed(0)} kg` : '—'} />
-                  <Stat label="CS total" value={totals.cs ? totals.cs.toFixed(2) : '—'} color="text-blue-300" />
-                  <Stat label="PS total" value={totals.ps ? totals.ps.toFixed(2) : '—'} color="text-amber-300" />
-                  <Stat label="TS total" value={totals.ts ? totals.ts.toFixed(2) : '—'} color="text-emerald-300" />
+              {(totals.tonnage || totals.ts || totals.impulseActual) ? (
+                <div ref={totalsRef} className="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 space-y-3">
+                  {/* PRESCRIT row */}
+                  <div>
+                    <div className="text-[10px] uppercase text-zinc-600 mb-2">Prescrit</div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                      <Stat label="Tonnage" value={totals.tonnagePrescribed ? `${totals.tonnagePrescribed.toFixed(0)} kg` : '—'} color="text-zinc-500" />
+                      <Stat label="Impulse" value={totals.impulsePrescribed ? `${totals.impulsePrescribed.toFixed(1)}` : '—'} color="text-zinc-500" />
+                      <Stat label="CS" value={totals.csPrescribed ? totals.csPrescribed.toFixed(2) : '—'} color="text-blue-400" />
+                      <Stat label="PS" value={totals.psPrescribed ? totals.psPrescribed.toFixed(2) : '—'} color="text-amber-400" />
+                      <Stat label="TS" value={totals.tsPrescribed ? totals.tsPrescribed.toFixed(2) : '—'} color="text-emerald-400" />
+                    </div>
+                  </div>
+
+                  {/* RÉALISÉ row */}
+                  <div className="pt-2 border-t border-zinc-700">
+                    <div className="text-[10px] uppercase text-zinc-400 mb-2">Réalisé</div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                      <Stat label="Tonnage" value={totals.tonnage ? `${totals.tonnage.toFixed(0)} kg` : '—'} color="text-zinc-100" />
+                      <Stat label="Impulse" value={totals.impulseActual ? `${totals.impulseActual.toFixed(1)}` : '—'} color="text-zinc-100" />
+                      <Stat label="CS" value={totals.cs ? totals.cs.toFixed(2) : '—'} color="text-blue-300" />
+                      <Stat label="PS" value={totals.ps ? totals.ps.toFixed(2) : '—'} color="text-amber-300" />
+                      <Stat label="TS" value={totals.ts ? totals.ts.toFixed(2) : '—'} color="text-emerald-300" />
+                    </div>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -693,6 +794,27 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
 
         {/* Footer */}
         <div className="flex flex-col-reverse items-stretch gap-2 border-t border-zinc-800 p-4 sm:flex-row sm:justify-end">
+          {isCoach && activeTab === 'prescription' && slots.length > 0 && (
+            <>
+              <button
+                onClick={() => setSaveTemplateOpen(true)}
+                className="btn-secondary"
+                title="Sauvegarder cette séance comme template réutilisable"
+              >
+                <Bookmark className="size-4" />
+                Sauver comme template
+              </button>
+              <button
+                onClick={() => setCloneOpen(true)}
+                className="btn-secondary"
+                title="Dupliquer cette séance sur une autre date"
+              >
+                <Copy className="size-4" />
+                Cloner
+              </button>
+            </>
+          )}
+
           <button onClick={onClose} className="btn-secondary">
             Fermer
           </button>
@@ -726,16 +848,45 @@ export default function SeanceModal({ session, blockId, currentWeek, onClose, on
           }}
         />
       )}
+
+      {/* Sauver comme template */}
+      {saveTemplateOpen && (
+        <SaveTemplateDialog
+          sourceSessionId={session.id}
+          defaultName={session.notes_coach ?? ''}
+          onClose={() => setSaveTemplateOpen(false)}
+          onSaved={() => setSaveTemplateOpen(false)}
+        />
+      )}
+
+      {/* Cloner la séance */}
+      {cloneOpen && (
+        <CloneSessionDialog
+          sessionId={session.id}
+          defaultDate={session.scheduled_date}
+          onClose={() => setCloneOpen(false)}
+          onCloned={() => {
+            setCloneOpen(false)
+            onUpdate()
+            onClose()
+          }}
+        />
+      )}
     </div>
   )
 }
 
 /* ---------- petits sous-composants ---------- */
-function Stat({ label, value, color = 'text-zinc-100' }: { label: string; value: string; color?: string }) {
+function Stat({ label, value, sublabel, color = 'text-zinc-100', muted = false }: { label: string; value: string; sublabel?: string; color?: string; muted?: boolean }) {
+  const labelColor = muted ? 'text-zinc-600' : 'text-zinc-500'
+  const valueColor = muted ? 'text-zinc-500' : color
   return (
     <div className="text-center">
-      <div className="text-[11px] uppercase tracking-wider text-zinc-500">{label}</div>
-      <div className={`font-mono text-base font-semibold ${color}`}>{value}</div>
+      <div className={`text-[11px] uppercase tracking-wider ${labelColor}`}>
+        {label}
+        {sublabel && <div className="text-[9px]">{sublabel}</div>}
+      </div>
+      <div className={`font-mono text-base font-semibold ${valueColor}`}>{value}</div>
     </div>
   )
 }

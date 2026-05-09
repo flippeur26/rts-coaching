@@ -443,6 +443,201 @@ export type Database = {
         }
         Relationships: []
       }
+      athlete_medical_history: {
+        Row: {
+          athlete_id: string
+          general_history: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          general_history?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          general_history?: string | null
+          notes?: string | null
+        }
+        Relationships: []
+      }
+      athlete_injuries: {
+        Row: {
+          id: string
+          athlete_id: string
+          body_zone: 'Cervicales' | 'Épaule' | 'Coude' | 'Poignet' | 'Lombaires' | 'Hanche' | 'Genou' | 'Cheville' | 'Pied' | 'Tronc' | 'Jambe' | 'Bras'
+          description: string | null
+          severity: number | null
+          status: 'active' | 'resolved'
+          started_on: string | null
+          resolved_on: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          athlete_id: string
+          body_zone: 'Cervicales' | 'Épaule' | 'Coude' | 'Poignet' | 'Lombaires' | 'Hanche' | 'Genou' | 'Cheville' | 'Pied' | 'Tronc' | 'Jambe' | 'Bras'
+          description?: string | null
+          severity?: number | null
+          status?: 'active' | 'resolved'
+          started_on?: string | null
+          resolved_on?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          athlete_id?: string
+          body_zone?: 'Cervicales' | 'Épaule' | 'Coude' | 'Poignet' | 'Lombaires' | 'Hanche' | 'Genou' | 'Cheville' | 'Pied' | 'Tronc' | 'Jambe' | 'Bras'
+          description?: string | null
+          severity?: number | null
+          status?: 'active' | 'resolved'
+          started_on?: string | null
+          resolved_on?: string | null
+        }
+        Relationships: []
+      }
+      athlete_settings: {
+        Row: {
+          athlete_id: string
+          unit_system: 'metric' | 'imperial'
+          bar_weight_kg: number
+          collar_weight_kg: number
+          available_plates_kg: number[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          unit_system?: 'metric' | 'imperial'
+          bar_weight_kg?: number
+          collar_weight_kg?: number
+          available_plates_kg?: number[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          unit_system?: 'metric' | 'imperial'
+          bar_weight_kg?: number
+          collar_weight_kg?: number
+          available_plates_kg?: number[]
+        }
+        Relationships: []
+      }
+      block_templates: {
+        Row: {
+          id: string
+          coach_id: string
+          name: string
+          description: string | null
+          type: 'Accumulation' | 'Intensification' | 'Réalisation' | 'Deload'
+          total_weeks: number | null
+          intensity_zone: string | null
+          weeks_to_competition: number | null
+          is_taper: boolean
+          taper_volume_reduction_pct: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          coach_id: string
+          name: string
+          description?: string | null
+          type: 'Accumulation' | 'Intensification' | 'Réalisation' | 'Deload'
+          total_weeks?: number | null
+          intensity_zone?: string | null
+          weeks_to_competition?: number | null
+          is_taper?: boolean
+          taper_volume_reduction_pct?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          coach_id?: string
+          name?: string
+          description?: string | null
+          type?: 'Accumulation' | 'Intensification' | 'Réalisation' | 'Deload'
+          total_weeks?: number | null
+          intensity_zone?: string | null
+          weeks_to_competition?: number | null
+          is_taper?: boolean
+          taper_volume_reduction_pct?: number | null
+        }
+        Relationships: []
+      }
+      session_templates: {
+        Row: {
+          id: string
+          coach_id: string
+          name: string
+          description: string | null
+          notes_coach: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          coach_id: string
+          name: string
+          description?: string | null
+          notes_coach?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          coach_id?: string
+          name?: string
+          description?: string | null
+          notes_coach?: string | null
+        }
+        Relationships: []
+      }
+      session_template_sets: {
+        Row: {
+          id: string
+          template_id: string
+          exercise_name: string
+          exercise_format: string | null
+          set_number: number
+          weight_prescribed_kg: number | null
+          reps_prescribed: number | null
+          rpe_prescribed: number | null
+          tempo: string | null
+          rom_prescribed: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          template_id: string
+          exercise_name: string
+          exercise_format?: string | null
+          set_number: number
+          weight_prescribed_kg?: number | null
+          reps_prescribed?: number | null
+          rpe_prescribed?: number | null
+          tempo?: string | null
+          rom_prescribed?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          template_id?: string
+          exercise_name?: string
+          exercise_format?: string | null
+          set_number?: number
+          weight_prescribed_kg?: number | null
+          reps_prescribed?: number | null
+          rpe_prescribed?: number | null
+          tempo?: string | null
+          rom_prescribed?: string | null
+        }
+        Relationships: []
+      }
       lookup_e1rm: {
         Row: { rpe: number; reps: number; pct: number }
         Insert: { rpe: number; reps: number; pct: number }
@@ -465,6 +660,54 @@ export type Database = {
         Row: { rpe: number; reps: number; value: number }
         Insert: { rpe: number; reps: number; value: number }
         Update: { value?: number }
+        Relationships: []
+      }
+      block_progression_config: {
+        Row: {
+          id: string
+          block_id: string
+          exercise_name: string
+          weight_enabled: boolean
+          weight_delta: number
+          weight_type: 'kg' | 'percent'
+          reps_delta: number
+          rpe_delta: number
+          sets_delta: number
+          copy_modifiers: boolean
+          detect_overperformance: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          block_id: string
+          exercise_name: string
+          weight_enabled?: boolean
+          weight_delta?: number
+          weight_type?: 'kg' | 'percent'
+          reps_delta?: number
+          rpe_delta?: number
+          sets_delta?: number
+          copy_modifiers?: boolean
+          detect_overperformance?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          block_id?: string
+          exercise_name?: string
+          weight_enabled?: boolean
+          weight_delta?: number
+          weight_type?: 'kg' | 'percent'
+          reps_delta?: number
+          rpe_delta?: number
+          sets_delta?: number
+          copy_modifiers?: boolean
+          detect_overperformance?: boolean
+          created_at?: string
+          updated_at?: string
+        }
         Relationships: []
       }
     }
@@ -507,3 +750,8 @@ export type DailyTracker = Database['public']['Tables']['daily_trackers']['Row']
 export type Competition = Database['public']['Tables']['competitions']['Row']
 export type Exercise = Database['public']['Tables']['exercises']['Row']
 export type CoachAthlete = Database['public']['Tables']['coach_athlete']['Row']
+export type AthleteSettings = Database['public']['Tables']['athlete_settings']['Row']
+export type AthleteMedicalHistory = Database['public']['Tables']['athlete_medical_history']['Row']
+export type AthleteInjury = Database['public']['Tables']['athlete_injuries']['Row']
+export const BODY_ZONES = ['Cervicales','Épaule','Coude','Poignet','Lombaires','Hanche','Genou','Cheville','Pied','Tronc','Jambe','Bras'] as const
+export type BodyZone = typeof BODY_ZONES[number]

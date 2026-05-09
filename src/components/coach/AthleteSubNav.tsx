@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, Activity, Heart, Dumbbell, ChevronLeft } from '@/components/ui/Icon'
+import { CalendarDays, Activity, Heart, Dumbbell, ChevronLeft, Gauge } from '@/components/ui/Icon'
 
 interface Props {
   athleteId: string
@@ -19,6 +19,7 @@ export default function AthleteSubNav({ athleteId, athleteName }: Props) {
     { href: `${base}/calendrier`,  label: 'Calendrier', Icon: CalendarDays, match: (p: string) => p.startsWith(`${base}/calendrier`) },
     { href: `${base}/traceurs`,    label: 'Traceurs',   Icon: Heart,        match: (p: string) => p.startsWith(`${base}/traceurs`) },
     { href: `${base}/blocs`,       label: 'Blocs',      Icon: Dumbbell,     match: (p: string) => p.startsWith(`${base}/blocs`) },
+    { href: `${base}/parametres`,  label: 'Réglages',   Icon: Gauge,        match: (p: string) => p.startsWith(`${base}/parametres`) },
   ]
 
   return (

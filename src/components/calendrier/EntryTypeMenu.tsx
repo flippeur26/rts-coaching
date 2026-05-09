@@ -8,9 +8,9 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { Dumbbell, Scale, Activity, NotebookPen, Trophy } from '@/components/ui/Icon'
+import { Dumbbell, Scale, Activity, NotebookPen, Trophy, Bookmark } from '@/components/ui/Icon'
 
-export type EntryType = 'workout' | 'bodyweight' | 'trac' | 'note' | 'competition'
+export type EntryType = 'workout' | 'workout_from_template' | 'bodyweight' | 'trac' | 'note' | 'competition'
 
 export interface EntryTypeMenuProps {
   open: boolean
@@ -21,11 +21,12 @@ export interface EntryTypeMenuProps {
 }
 
 const ITEMS: { type: EntryType; label: string; Icon: typeof Dumbbell; color: string }[] = [
-  { type: 'workout',     label: 'Workout',      Icon: Dumbbell,   color: 'var(--entry-workout)' },
-  { type: 'bodyweight',  label: 'Poids de corps', Icon: Scale,    color: 'var(--entry-bw)' },
-  { type: 'trac',        label: 'TRAC entry',    Icon: Activity,  color: 'var(--entry-trac)' },
-  { type: 'note',        label: 'Note',          Icon: NotebookPen, color: 'var(--entry-note)' },
-  { type: 'competition', label: 'Compétition',   Icon: Trophy,    color: 'var(--entry-comp)' },
+  { type: 'workout',               label: 'Workout',           Icon: Dumbbell,    color: 'var(--entry-workout)' },
+  { type: 'workout_from_template', label: 'Workout (template)', Icon: Bookmark,   color: 'var(--entry-workout)' },
+  { type: 'bodyweight',            label: 'Poids de corps',     Icon: Scale,      color: 'var(--entry-bw)' },
+  { type: 'trac',                  label: 'TRAC entry',         Icon: Activity,   color: 'var(--entry-trac)' },
+  { type: 'note',                  label: 'Note',               Icon: NotebookPen, color: 'var(--entry-note)' },
+  { type: 'competition',           label: 'Compétition',        Icon: Trophy,     color: 'var(--entry-comp)' },
 ]
 
 export default function EntryTypeMenu({ open, anchor, onSelect, onClose }: EntryTypeMenuProps) {

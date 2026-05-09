@@ -15,6 +15,8 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { pctOf1RM, roundToStep } from '@/lib/rts-calc'
+import { roundToAvailablePlates, formatWeight, unitLabel } from '@/lib/plate-math'
+import type { AthleteSettings } from '@/types/database'
 import { X } from '@/components/ui/Icon'
 
 export interface WorkoutPlannerProps {
@@ -43,6 +45,7 @@ export default function WorkoutPlanner({
   const [percentMod, setPercentMod] = useState<string>('0')
   const [round, setRound] = useState<boolean>(true)
   const [savedE1RM, setSavedE1RM] = useState<number | null>(null)
+  const [settings, setSettings] = useState<AthleteSettings | null>(null)
 
   useEffect(() => {
     if (initialE1RM != null) setE1rm(initialE1RM.toString())
@@ -61,6 +64,19 @@ export default function WorkoutPlanner({
       })
       .catch(() => {})
   }, [athleteId, exerciseName])
+
+  // Charger les settings athlète (équipement + unités)
+  useEffect(() => {
+    if (!athleteId) return
+    fetch(`/api/athletes/${athleteId}/settings`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: AthleteSettings | null) => {
+        if (data) setSettings(data)
+      })
+      .catch(() => {})
+  }, [athleteId])
+
+  const unit = settings?.unit_system ?? 'metric'
 
   const computed = useMemo(() => {
     const e = parseFloat(e1rm)
@@ -84,9 +100,21 @@ export default function WorkoutPlanner({
     const offset = parseFloat(percentMod) || 0
     const finalPct = basePct + offset
     let load = (e * finalPct) / 100
-    if (round) load = roundToStep(load, 2.5)
+    if (round) {
+      // Si on a les settings de l'athlète, on arrondit aux disques disponibles.
+      // Sinon, fallback sur palier 2.5 kg.
+      if (settings) {
+        load = roundToAvailablePlates(load, {
+          bar_weight_kg: settings.bar_weight_kg,
+          collar_weight_kg: settings.collar_weight_kg,
+          available_plates_kg: settings.available_plates_kg,
+        })
+      } else {
+        load = roundToStep(load, 2.5)
+      }
+    }
     return { load, pct: finalPct, rpe: usedRpe }
-  }, [e1rm, reps, rpe, percent, percentMod, percentMode, round])
+  }, [e1rm, reps, rpe, percent, percentMod, percentMode, round, settings])
 
   function handleAdd() {
     if (!computed) return
@@ -113,7 +141,7 @@ export default function WorkoutPlanner({
       <div className="flex items-end gap-3">
         <div className="flex-1">
           <label className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">
-            E1RM {savedE1RM && <span className="text-orange-400">(Max: {savedE1RM.toFixed(1)} kg)</span>}
+            E1RM {savedE1RM && <span className="text-orange-400">(Max: {formatWeight(savedE1RM, unit)})</span>}
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -196,9 +224,9 @@ export default function WorkoutPlanner({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs text-zinc-500">Charge (kg)</label>
+            <label className="mb-1 block text-xs text-zinc-500">Charge ({unitLabel(unit)})</label>
             <div className="input-base flex items-center justify-center font-mono text-base font-semibold text-white">
-              {computed ? computed.load.toFixed(1) : '—'}
+              {computed ? formatWeight(computed.load, unit).replace(/\s?(kg|lbs)$/, '') : '—'}
             </div>
           </div>
           <div>
@@ -210,14 +238,14 @@ export default function WorkoutPlanner({
         </div>
 
         <div className="mt-3 flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <label className="flex items-center gap-2 text-sm text-zinc-300" title={settings ? 'Arrondi sur les disques configurés dans Réglages' : 'Arrondi simple au palier 2.5 kg (configure tes disques dans Réglages)'}>
             <input
               type="checkbox"
               checked={round}
               onChange={e => setRound(e.target.checked)}
               className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-orange-500 focus:ring-2 focus:ring-orange-500/40"
             />
-            Round (palier 2,5 kg)
+            {settings ? 'Arrondir aux disques dispo' : 'Round (palier 2,5 kg)'}
           </label>
 
           <button

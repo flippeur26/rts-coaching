@@ -12,7 +12,7 @@
  *   └──────────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Move,
   Plus,
@@ -25,6 +25,7 @@ import {
   X,
 } from '@/components/ui/Icon'
 import { themeForExercise, type MovementCategory } from '@/lib/movement'
+import { aggregateSlot } from '@/lib/rts-aggregate'
 import type { Set as SetRow } from '@/types/database'
 
 export interface SlotSetDraft {
@@ -49,6 +50,11 @@ export interface SlotSetDraft {
   central_stress?: number | null
   peripheral_stress?: number | null
   total_stress?: number | null
+  central_stress_prescribed?: number | null
+  peripheral_stress_prescribed?: number | null
+  total_stress_prescribed?: number | null
+  impulse_prescribed?: number | null
+  impulse_actual?: number | null
   rpe_realization_pct?: number | null
 }
 
@@ -70,6 +76,11 @@ export function setRowToDraft(s: SetRow): SlotSetDraft {
     central_stress: s.central_stress,
     peripheral_stress: s.peripheral_stress,
     total_stress: s.total_stress,
+    central_stress_prescribed: s.central_stress_prescribed,
+    peripheral_stress_prescribed: s.peripheral_stress_prescribed,
+    total_stress_prescribed: s.total_stress_prescribed,
+    impulse_prescribed: s.impulse_prescribed,
+    impulse_actual: s.impulse_actual,
     rpe_realization_pct: s.rpe_realization_pct,
   }
 }
@@ -89,6 +100,17 @@ export function emptySetDraft(setNumber: number): SlotSetDraft {
   }
 }
 
+export interface SlotProgressionConfig {
+  weight_enabled: boolean
+  weight_delta: number
+  weight_type: 'kg' | 'percent'
+  reps_delta: number
+  rpe_delta: number
+  sets_delta: number
+  copy_modifiers: boolean
+  detect_overperformance: boolean
+}
+
 export interface SlotCardV2Props {
   exerciseName: string
   exerciseFormat?: string | null
@@ -105,6 +127,10 @@ export interface SlotCardV2Props {
   blockId?: string
   /** Numéro de la semaine actuelle (pour progression) */
   currentWeek?: number
+  /** Config de progression persistée (pré-remplit le panneau) */
+  initialProgression?: SlotProgressionConfig | null
+  /** Callback après application de progression (déclenche reload parent) */
+  onProgressionApplied?: () => void
 
   // --- callbacks ---
   onSetChange: (index: number, field: keyof SlotSetDraft, value: string) => void
@@ -127,27 +153,8 @@ export interface SlotCardV2Props {
   onApplyModifiers?: (data: { format: string | null; tempo: string; rom: string }) => void
 }
 
-/** Petit helper d'agrégation pour l'affichage du résumé (E1RM max, tonnage somme, etc.) */
-function aggregate(sets: SlotSetDraft[]) {
-  const e1rms = sets.map(s => s.e1rm_kg).filter((v): v is number => v != null)
-  const tonnage = sets.reduce((sum, s) => sum + (s.volume_load_kg ?? 0), 0)
-  const nl = sets.reduce((sum, s) => {
-    const reps = parseInt(s.reps_actual)
-    return sum + (Number.isFinite(reps) ? reps : 0)
-  }, 0)
-  const cs = sets.reduce((sum, s) => sum + (s.central_stress ?? 0), 0)
-  const ps = sets.reduce((sum, s) => sum + (s.peripheral_stress ?? 0), 0)
-  const ts = sets.reduce((sum, s) => sum + (s.total_stress ?? 0), 0)
-
-  return {
-    e1rm: e1rms.length ? Math.max(...e1rms) : null,
-    tonnage: tonnage || null,
-    nl: nl || null,
-    cs: cs || null,
-    ps: ps || null,
-    ts: ts || null,
-  }
-}
+// Agrégation déléguée à `src/lib/rts-aggregate.ts` (calcul live pré-save,
+// fallback per-field actual → prescribed, parité DB via lookup tables embarquées).
 
 export default function SlotCardV2({
   exerciseName,
@@ -159,6 +166,8 @@ export default function SlotCardV2({
   readonlyTarget,
   blockId,
   currentWeek,
+  initialProgression,
+  onProgressionApplied,
   onSetChange,
   onSetBlur,
   onAddSet,
@@ -173,16 +182,48 @@ export default function SlotCardV2({
   onApplyModifiers,
 }: SlotCardV2Props) {
   const theme = useMemo(() => themeForExercise(exerciseName, category), [exerciseName, category])
-  const summary = useMemo(() => aggregate(sets), [sets])
+  const summary = useMemo(() => aggregateSlot(sets), [sets])
   const [modifierOpen, setModifierOpen] = useState(false)
   const [progressionOpen, setProgressionOpen] = useState(false)
-  const [weightEnabled, setWeightEnabled] = useState(true)
-  const [progRows, setProgRows] = useState<Record<'weight' | 'reps' | 'rpe' | 'sets', { value: string; type: 'fixed' | 'percent' }>>({
-    weight: { value: '0', type: 'fixed' },
-    reps:   { value: '0', type: 'fixed' },
-    rpe:    { value: '0', type: 'fixed' },
-    sets:   { value: '0', type: 'fixed' },
-  })
+  const [weightEnabled, setWeightEnabled] = useState(initialProgression?.weight_enabled ?? false)
+  const [progRows, setProgRows] = useState<Record<'weight' | 'reps' | 'rpe' | 'sets', { value: string; type: 'fixed' | 'percent' }>>(() => ({
+    weight: {
+      value: (initialProgression?.weight_delta ?? 0).toString(),
+      type: initialProgression?.weight_type === 'percent' ? 'percent' : 'fixed',
+    },
+    reps: { value: (initialProgression?.reps_delta ?? 0).toString(), type: 'fixed' },
+    rpe:  { value: (initialProgression?.rpe_delta ?? 0).toString(),  type: 'fixed' },
+    sets: { value: (initialProgression?.sets_delta ?? 0).toString(), type: 'fixed' },
+  }))
+  const [copyModifiers, setCopyModifiers] = useState(initialProgression?.copy_modifiers ?? true)
+  const [detectPerf, setDetectPerf] = useState(initialProgression?.detect_overperformance ?? true)
+
+  // Re-synchronise état avec props quand la config persistée change (ex: après reload)
+  useEffect(() => {
+    if (!initialProgression) return
+    setWeightEnabled(initialProgression.weight_enabled)
+    setProgRows({
+      weight: {
+        value: initialProgression.weight_delta.toString(),
+        type: initialProgression.weight_type === 'percent' ? 'percent' : 'fixed',
+      },
+      reps: { value: initialProgression.reps_delta.toString(), type: 'fixed' },
+      rpe:  { value: initialProgression.rpe_delta.toString(),  type: 'fixed' },
+      sets: { value: initialProgression.sets_delta.toString(), type: 'fixed' },
+    })
+    setCopyModifiers(initialProgression.copy_modifiers)
+    setDetectPerf(initialProgression.detect_overperformance)
+  }, [initialProgression])
+
+  const hasActiveProgression = useMemo(() => {
+    if (!initialProgression) return false
+    return (
+      (initialProgression.weight_enabled && initialProgression.weight_delta !== 0) ||
+      initialProgression.reps_delta !== 0 ||
+      initialProgression.rpe_delta !== 0 ||
+      initialProgression.sets_delta !== 0
+    )
+  }, [initialProgression])
 
   const styleVars: React.CSSProperties = {
     // exposées pour les classes Tailwind ci-dessous via var(--slot-mvmt-*)
@@ -264,12 +305,15 @@ export default function SlotCardV2({
           </button>
           {isCoach && (
             <button
-              className={`btn-icon rounded-full border ${progressionOpen ? 'border-blue-500/60 text-blue-400 bg-blue-500/10' : 'border-zinc-700 text-zinc-400'}`}
+              className={`relative btn-icon rounded-full border ${progressionOpen ? 'border-blue-500/60 text-blue-400 bg-blue-500/10' : 'border-zinc-700 text-zinc-400'}`}
               title="Progression vers semaine suivante"
               aria-label="Progression vers semaine suivante"
               onClick={() => setProgressionOpen(v => !v)}
             >
               <MoveRight className="size-4" />
+              {hasActiveProgression && (
+                <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-blue-400" aria-hidden />
+              )}
             </button>
           )}
           {isCoach && onRemoveSlot && (
@@ -306,12 +350,16 @@ export default function SlotCardV2({
         <ProgressionPanel
           exerciseName={exerciseName}
           blockId={blockId}
-          currentWeek={currentWeek}
           weightEnabled={weightEnabled}
           setWeightEnabled={setWeightEnabled}
           rows={progRows}
           setRows={setProgRows}
+          copyModifiers={copyModifiers}
+          setCopyModifiers={setCopyModifiers}
+          detectPerf={detectPerf}
+          setDetectPerf={setDetectPerf}
           onClose={() => setProgressionOpen(false)}
+          onApplied={onProgressionApplied}
         />
       )}
 
@@ -463,27 +511,56 @@ export default function SlotCardV2({
               </tr>
             ))}
 
-            {/* Ligne computed : labels */}
-            <tr className="text-center text-xs text-zinc-500 [&_td]:pt-3 [&_td]:pb-1">
+            {/* Computed metrics — 2 sections PRESCRIT/RÉALISÉ */}
+            {/* PRESCRIT section */}
+            <tr className="text-center text-[10px] text-zinc-600 [&_td]:pt-3 [&_td]:pb-1 border-t border-zinc-700">
+              <td colSpan={9} className="text-left pl-2">Prescrit</td>
+            </tr>
+            <tr className="text-center text-xs text-zinc-500 [&_td]:pb-2 [&_td]:font-mono [&_td]:text-[10px]">
+              <td />
+              <td>Tonnage</td>
+              <td>NL</td>
+              <td>Impulse</td>
+              <td>CS</td>
+              <td>PS</td>
+              <td>TS</td>
+              <td colSpan={2} />
+            </tr>
+            <tr className="text-center text-xs text-zinc-500 [&_td]:pb-2 [&_td]:font-mono">
+              <td />
+              <td>{summary.tonnagePrescribed != null ? summary.tonnagePrescribed.toFixed(0) : '—'}</td>
+              <td>{summary.nlPrescribed != null ? summary.nlPrescribed : '—'}</td>
+              <td>{summary.impulsePrescribed != null ? summary.impulsePrescribed.toFixed(1) : '—'}</td>
+              <td>{summary.csPrescribed != null ? summary.csPrescribed.toFixed(2) : '—'}</td>
+              <td>{summary.psPrescribed != null ? summary.psPrescribed.toFixed(2) : '—'}</td>
+              <td>{summary.tsPrescribed != null ? summary.tsPrescribed.toFixed(2) : '—'}</td>
+              <td colSpan={2} />
+            </tr>
+
+            {/* RÉALISÉ section */}
+            <tr className="text-center text-[10px] text-zinc-500 [&_td]:pt-3 [&_td]:pb-1 border-t border-zinc-700">
+              <td colSpan={9} className="text-left pl-2">Réalisé</td>
+            </tr>
+            <tr className="text-center text-xs text-zinc-400 [&_td]:pb-2 [&_td]:font-mono [&_td]:text-[10px]">
               <td />
               <td>E1RM</td>
               <td>Tonnage</td>
               <td>NL</td>
-              <td />
-              <td>Total Stress</td>
-              <td>Peripheral Stress</td>
-              <td>Central Stress</td>
+              <td>Impulse</td>
+              <td>CS</td>
+              <td>PS</td>
+              <td>TS</td>
               <td />
             </tr>
-            <tr className="text-center text-sm text-zinc-300 [&_td]:pb-2">
+            <tr className="text-center text-sm text-zinc-200 [&_td]:pb-2 [&_td]:font-mono">
               <td />
-              <td className="font-mono">{summary.e1rm != null ? summary.e1rm.toFixed(1) : '—'}</td>
-              <td className="font-mono">{summary.tonnage != null ? summary.tonnage.toFixed(0) : '—'}</td>
-              <td className="font-mono">{summary.nl ?? '—'}</td>
-              <td />
-              <td className="font-mono">{summary.ts != null ? summary.ts.toFixed(2) : '—'}</td>
-              <td className="font-mono">{summary.ps != null ? summary.ps.toFixed(2) : '—'}</td>
-              <td className="font-mono">{summary.cs != null ? summary.cs.toFixed(2) : '—'}</td>
+              <td>{summary.e1rm != null ? summary.e1rm.toFixed(1) : '—'}</td>
+              <td>{summary.tonnage != null ? summary.tonnage.toFixed(0) : '—'}</td>
+              <td>{summary.nl ?? '—'}</td>
+              <td>{summary.impulseActual != null ? summary.impulseActual.toFixed(1) : '—'}</td>
+              <td>{summary.cs != null ? summary.cs.toFixed(2) : '—'}</td>
+              <td>{summary.ps != null ? summary.ps.toFixed(2) : '—'}</td>
+              <td>{summary.ts != null ? summary.ts.toFixed(2) : '—'}</td>
               <td />
             </tr>
           </tbody>
@@ -601,21 +678,50 @@ export default function SlotCardV2({
 
           {/* computed mobile */}
           <div className="mt-3 space-y-1">
-            <div className="grid grid-cols-3 gap-2 text-center text-[11px] uppercase text-zinc-500">
-              <div>E1RM</div><div>Tonnage</div><div>NL</div>
+            {/* PRESCRIT section */}
+            <div>
+              <div className="text-[10px] uppercase text-zinc-600 mb-1">Prescrit</div>
+              <div className="grid grid-cols-5 gap-1 text-center text-[10px] uppercase text-zinc-600">
+                <div>Tonnage</div><div>NL</div><div>Impulse</div><div>CS</div><div>PS</div>
+              </div>
+              <div className="grid grid-cols-5 gap-1 text-center text-xs font-mono text-zinc-500 mb-2 pb-2 border-b border-zinc-700">
+                <div>{summary.tonnagePrescribed != null ? summary.tonnagePrescribed.toFixed(0) : '—'}</div>
+                <div>{summary.nlPrescribed != null ? summary.nlPrescribed : '—'}</div>
+                <div>{summary.impulsePrescribed != null ? summary.impulsePrescribed.toFixed(1) : '—'}</div>
+                <div>{summary.csPrescribed != null ? summary.csPrescribed.toFixed(2) : '—'}</div>
+                <div>{summary.psPrescribed != null ? summary.psPrescribed.toFixed(2) : '—'}</div>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-sm font-mono text-zinc-300">
-              <div>{summary.e1rm != null ? summary.e1rm.toFixed(1) : '—'}</div>
-              <div>{summary.tonnage != null ? summary.tonnage.toFixed(0) : '—'}</div>
-              <div>{summary.nl ?? '—'}</div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-[11px] uppercase text-zinc-500 pt-1">
-              <div>Total Stress</div><div>Periph.</div><div>Central</div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-sm font-mono text-zinc-300">
-              <div>{summary.ts != null ? summary.ts.toFixed(2) : '—'}</div>
-              <div>{summary.ps != null ? summary.ps.toFixed(2) : '—'}</div>
-              <div>{summary.cs != null ? summary.cs.toFixed(2) : '—'}</div>
+
+            {/* RÉALISÉ + E1RM side-by-side */}
+            <div className="flex gap-4">
+              {/* RÉALISÉ — left/center */}
+              <div className="flex-1">
+                <div className="text-[10px] uppercase text-zinc-400 mb-1">Réalisé</div>
+                <div className="grid grid-cols-4 gap-1 text-center text-[10px] uppercase text-zinc-500">
+                  <div>Tonnage</div><div>NL</div><div>Impulse</div><div>Stress</div>
+                </div>
+                <div className="grid grid-cols-4 gap-1 text-center text-xs font-mono text-zinc-300 mb-1">
+                  <div>{summary.tonnage != null ? summary.tonnage.toFixed(0) : '—'}</div>
+                  <div>{summary.nl ?? '—'}</div>
+                  <div>{summary.impulseActual != null ? summary.impulseActual.toFixed(1) : '—'}</div>
+                  <div>{summary.ts != null ? summary.ts.toFixed(2) : '—'}</div>
+                </div>
+                <div className="grid grid-cols-4 gap-1 text-center text-[10px] uppercase text-zinc-600">
+                  <div />
+                  <div />
+                  <div />
+                  <div>TS</div>
+                </div>
+              </div>
+
+              {/* E1RM — right, tall & prominent */}
+              <div className="flex items-center justify-center px-3">
+                <div className="text-center">
+                  <div className="text-[10px] uppercase text-zinc-500 mb-2">E1RM</div>
+                  <div className="text-2xl font-mono text-zinc-100 font-bold">{summary.e1rm != null ? summary.e1rm.toFixed(1) : '—'}</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -886,55 +992,63 @@ interface ProgRow {
 function ProgressionPanel({
   exerciseName,
   blockId,
-  currentWeek,
   weightEnabled,
   setWeightEnabled,
   rows,
   setRows,
+  copyModifiers,
+  setCopyModifiers,
+  detectPerf,
+  setDetectPerf,
   onClose,
+  onApplied,
 }: {
   exerciseName: string
   blockId: string
-  currentWeek: number
   weightEnabled: boolean
   setWeightEnabled: (v: boolean) => void
   rows: Record<'weight' | 'reps' | 'rpe' | 'sets', ProgRow>
   setRows: React.Dispatch<React.SetStateAction<Record<'weight' | 'reps' | 'rpe' | 'sets', ProgRow>>>
+  copyModifiers: boolean
+  setCopyModifiers: (v: boolean) => void
+  detectPerf: boolean
+  setDetectPerf: (v: boolean) => void
   onClose: () => void
+  onApplied?: () => void
 }) {
-  const [copyModifiers, setCopyModifiers] = useState(true)
-  const [detectPerf, setDetectPerf] = useState(true)
-  const [applyToAll, setApplyToAll] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
 
   const setRow = (field: keyof typeof rows, patch: Partial<ProgRow>) =>
     setRows(prev => ({ ...prev, [field]: { ...prev[field], ...patch } }))
 
   const LABELS: Record<string, string> = { weight: 'Weight', reps: 'Reps', rpe: 'RPE', sets: 'Séries' }
 
-  const handleApply = () => {
-    const activeFields = (Object.keys(rows) as (keyof typeof rows)[]).filter(f => {
-      if (f === 'weight') return weightEnabled && Number(rows[f].value) !== 0
-      return Number(rows[f].value) !== 0 && !isNaN(Number(rows[f].value))
-    })
-    for (const field of activeFields) {
-      const row = rows[field]
-      fetch(`/api/blocks/${blockId}/progress-week`, {
+  const handleApply = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      const res = await fetch(`/api/blocks/${blockId}/progress-week`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source_week: currentWeek,
-          target_week: currentWeek + 1,
-          exercises: [exerciseName],
-          field,
-          type: field === 'weight' ? row.type : 'fixed',
-          value: Number(row.value),
+          exercise_name: exerciseName,
+          weight_enabled: weightEnabled,
+          weight_delta: Number(rows.weight.value) || 0,
+          weight_type: rows.weight.type === 'percent' ? 'percent' : 'kg',
+          reps_delta: Number(rows.reps.value) || 0,
+          rpe_delta: Number(rows.rpe.value) || 0,
+          sets_delta: Number(rows.sets.value) || 0,
           copy_modifiers: copyModifiers,
           detect_overperformance: detectPerf,
-          apply_to_all_weeks: applyToAll,
         }),
       })
+      if (res.ok) {
+        onApplied?.()
+        onClose()
+      }
+    } finally {
+      setSubmitting(false)
     }
-    onClose()
   }
 
   return (
@@ -995,7 +1109,6 @@ function ProgressionPanel({
         {[
           { label: 'Copier tempo/ROM/variations', val: copyModifiers, set: setCopyModifiers },
           { label: 'Détection intelligente (réduire si surperformance)', val: detectPerf, set: setDetectPerf },
-          { label: 'Appliquer à toutes les semaines suivantes', val: applyToAll, set: setApplyToAll },
         ].map(({ label, val, set }) => (
           <label key={label} className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={val} onChange={e => set(e.target.checked)} className="w-4 h-4" />
@@ -1004,8 +1117,8 @@ function ProgressionPanel({
         ))}
       </div>
 
-      <button onClick={handleApply} className="btn-primary w-full py-1.5 text-xs">
-        Appliquer à la semaine suivante
+      <button onClick={handleApply} disabled={submitting} className="btn-primary w-full py-1.5 text-xs disabled:opacity-50">
+        {submitting ? 'Application…' : 'Appliquer'}
       </button>
     </div>
   )

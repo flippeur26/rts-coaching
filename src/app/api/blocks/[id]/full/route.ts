@@ -43,5 +43,14 @@ export async function GET(
 
   if (sErr) return ERRORS.SERVER()
 
-  return ok({ block, sessions: sessions ?? [] })
+  const { data: progression_configs } = await supabase
+    .from('block_progression_config')
+    .select('*')
+    .eq('block_id', id)
+
+  return ok({
+    block,
+    sessions: sessions ?? [],
+    progression_configs: progression_configs ?? [],
+  })
 }

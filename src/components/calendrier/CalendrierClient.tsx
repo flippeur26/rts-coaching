@@ -28,6 +28,7 @@ import { fr } from 'date-fns/locale'
 import type { Session, Set as SetRow, DailyTracker, Competition } from '@/types/database'
 import SeanceModal from './SeanceModal'
 import EntryTypeMenu, { type EntryType } from './EntryTypeMenu'
+import TemplatePickerDialog from './TemplatePickerDialog'
 import { ChevronLeft, ChevronRight, Plus, Dumbbell, Heart, Scale, Trophy, NotebookPen } from '@/components/ui/Icon'
 
 type SessionWithSets = Session & { sets: SetRow[] }
@@ -57,6 +58,12 @@ export default function CalendrierClient({ athletes, coachId }: Props) {
 
   // Quick entry inline (bw / trac) — ouvre une mini-modal sur le jour
   const [quickEntry, setQuickEntry] = useState<{ type: EntryType; date: string } | null>(null)
+
+  // Template picker (workout_from_template)
+  const [templatePicker, setTemplatePicker] = useState<{ date: string } | null>(null)
+
+  // Drag-drop state : id de la session en cours de drag
+  const [draggingSessionId, setDraggingSessionId] = useState<string | null>(null)
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(currentMonth)
@@ -136,11 +143,39 @@ export default function CalendrierClient({ athletes, coachId }: Props) {
         }
         return
       }
+      if (type === 'workout_from_template') {
+        setTemplatePicker({ date })
+        return
+      }
       if (type === 'bodyweight' || type === 'trac' || type === 'note' || type === 'competition') {
         setQuickEntry({ type, date })
       }
     },
     [selectedAthleteId, load],
+  )
+
+  /* ---------- drag-drop séance ---------- */
+  const handleDropSession = useCallback(
+    async (sessionId: string, newDate: string) => {
+      const session = sessions.find(s => s.id === sessionId)
+      if (!session || session.scheduled_date === newDate) return
+
+      // Optimistic update
+      setSessions(prev =>
+        prev.map(s => (s.id === sessionId ? { ...s, scheduled_date: newDate } : s)),
+      )
+
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduled_date: newDate }),
+      })
+      if (!res.ok) {
+        // rollback
+        await load()
+      }
+    },
+    [sessions, load],
   )
 
   /* ---------- UI ---------- */
@@ -219,6 +254,15 @@ export default function CalendrierClient({ athletes, coachId }: Props) {
                 loading={loading}
                 onOpenSession={s => setSelectedSession(s)}
                 onAddClick={(anchor) => setMenuOpen({ date: isoDay, anchor })}
+                onDragStartSession={id => setDraggingSessionId(id)}
+                onDragEndSession={() => setDraggingSessionId(null)}
+                onDropOnDay={() => {
+                  if (draggingSessionId) {
+                    handleDropSession(draggingSessionId, isoDay)
+                    setDraggingSessionId(null)
+                  }
+                }}
+                isDragging={draggingSessionId != null}
               />
             )
           })}
@@ -266,6 +310,19 @@ export default function CalendrierClient({ athletes, coachId }: Props) {
           isCoach
         />
       )}
+
+      {/* Sélecteur de template */}
+      {templatePicker && selectedAthleteId && (
+        <TemplatePickerDialog
+          athleteId={selectedAthleteId}
+          date={templatePicker.date}
+          onClose={() => setTemplatePicker(null)}
+          onInstantiated={async () => {
+            setTemplatePicker(null)
+            await load()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -280,6 +337,10 @@ function DayCell({
   loading,
   onOpenSession,
   onAddClick,
+  onDragStartSession,
+  onDragEndSession,
+  onDropOnDay,
+  isDragging,
 }: {
   day: Date
   inMonth: boolean
@@ -288,16 +349,35 @@ function DayCell({
   loading: boolean
   onOpenSession: (s: SessionWithSets) => void
   onAddClick: (anchor: { top: number; left: number }) => void
+  onDragStartSession: (id: string) => void
+  onDragEndSession: () => void
+  onDropOnDay: () => void
+  isDragging: boolean
 }) {
   const cellRef = useRef<HTMLDivElement>(null)
   const dayNum = format(day, 'd')
+  const [dragOver, setDragOver] = useState(false)
 
   return (
     <div
       ref={cellRef}
+      onDragOver={ev => {
+        if (!isDragging) return
+        ev.preventDefault()
+        ev.dataTransfer.dropEffect = 'move'
+        if (!dragOver) setDragOver(true)
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={ev => {
+        ev.preventDefault()
+        setDragOver(false)
+        onDropOnDay()
+      }}
       className={`group relative min-h-32 border-b border-r border-zinc-800/60 p-1.5 transition-colors ${
         inMonth ? '' : 'bg-zinc-950/40 text-zinc-600'
-      } ${isToday ? 'bg-orange-500/[0.04]' : ''}`}
+      } ${isToday ? 'bg-orange-500/[0.04]' : ''} ${
+        dragOver ? 'bg-orange-500/15 ring-1 ring-inset ring-orange-500/60' : ''
+      }`}
     >
       <div className="flex items-center justify-between text-xs">
         <span className={`font-mono ${isToday ? 'rounded-full bg-orange-600 px-2 py-0.5 text-white' : 'text-zinc-400'}`}>
@@ -324,13 +404,24 @@ function DayCell({
               <button
                 key={s.id}
                 onClick={() => onOpenSession(s)}
+                draggable={s.status !== 'completed'}
+                onDragStart={ev => {
+                  if (s.status === 'completed') {
+                    ev.preventDefault()
+                    return
+                  }
+                  ev.dataTransfer.effectAllowed = 'move'
+                  ev.dataTransfer.setData('text/session-id', s.id)
+                  onDragStartSession(s.id)
+                }}
+                onDragEnd={onDragEndSession}
                 title={s.notes_coach ?? 'Workout'}
                 className={`flex w-full items-center gap-1 truncate rounded border px-2 py-1 text-left text-xs transition-colors hover:brightness-110 ${
                   s.status === 'completed'
-                    ? 'border-emerald-700/60 bg-emerald-950/40 text-emerald-200'
+                    ? 'border-emerald-700/60 bg-emerald-950/40 text-emerald-200 cursor-pointer'
                     : s.status === 'in_progress'
-                    ? 'border-amber-700/60 bg-amber-950/40 text-amber-200'
-                    : 'border-cyan-700/60 bg-cyan-950/30 text-cyan-200'
+                    ? 'border-amber-700/60 bg-amber-950/40 text-amber-200 cursor-grab active:cursor-grabbing'
+                    : 'border-cyan-700/60 bg-cyan-950/30 text-cyan-200 cursor-grab active:cursor-grabbing'
                 }`}
               >
                 <Dumbbell className="size-3 shrink-0" style={{ color: 'var(--entry-workout)' }} />
@@ -463,6 +554,7 @@ function QuickEntryModal({
 
   const titleByType: Record<EntryType, string> = {
     workout: 'Workout',
+    workout_from_template: 'Workout (template)',
     bodyweight: 'Poids de corps',
     trac: 'TRAC entry',
     note: 'Note',

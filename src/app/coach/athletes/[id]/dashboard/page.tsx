@@ -2,13 +2,19 @@ import { createClient } from '@/lib/supabase/server'
 import { format, subDays, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { computeAlerts, computeE1rmTrends, computeFatigueScore } from '@/lib/dashboard'
-import type { DailyTracker, Set as SetRow } from '@/types/database'
+import {
+  computeCompliance,
+  computeWeeklyCompliance,
+  computeStagnation,
+  computeOverreachingSignal,
+} from '@/lib/compliance'
+import type { DailyTracker, Set as SetRow, Session } from '@/types/database'
 import ProfilAthleteCharts from '@/components/coach/ProfilAthleteCharts'
+import ComplianceCard from '@/components/coach/ComplianceCard'
+import StagnationBadge from '@/components/coach/StagnationBadge'
+import OverreachingBadge from '@/components/coach/OverreachingBadge'
+import WeeklyComplianceChart from '@/components/coach/WeeklyComplianceChart'
 
-/**
- * Dashboard scopé à l'athlète : e1RM, alertes, score fatigue, graphes traceurs/poids.
- * (Auparavant intégré dans la page Profil, maintenant on l'isole pour clarifier.)
- */
 export default async function AthleteDashboardPage({
   params,
 }: {
@@ -18,24 +24,32 @@ export default async function AthleteDashboardPage({
   const supabase = await createClient()
 
   const from30 = format(subDays(new Date(), 30), 'yyyy-MM-dd')
-  const from14 = format(subDays(new Date(), 14), 'yyyy-MM-dd')
+  const from28 = format(subDays(new Date(), 28), 'yyyy-MM-dd')
 
-  const [{ data: trackers }, { data: recentSessions }] = await Promise.all([
+  const [{ data: trackers }, { data: sessions30 }] = await Promise.all([
     supabase.from('daily_trackers').select('*').eq('athlete_id', id).gte('date', from30).order('date', { ascending: false }),
-    supabase.from('sessions').select('id, scheduled_date').eq('athlete_id', id).gte('scheduled_date', from14).order('scheduled_date', { ascending: false }),
+    supabase.from('sessions').select('id, athlete_id, scheduled_date, status, coach_id, block_id, week_in_block, session_number, notes_coach, notes_athlete, bodyweight_kg, duration_min, session_feel, created_at, completed_at').eq('athlete_id', id).gte('scheduled_date', from28).order('scheduled_date', { ascending: false }),
   ])
 
-  const recentSessionIds = (recentSessions ?? []).map(s => s.id)
-  const { data: recentSets } = recentSessionIds.length
-    ? await supabase.from('sets').select('*').in('session_id', recentSessionIds).not('e1rm_kg', 'is', null)
+  const sessionIds = (sessions30 ?? []).map(s => s.id)
+  const { data: sets30 } = sessionIds.length
+    ? await supabase.from('sets').select('*').in('session_id', sessionIds)
     : { data: [] }
 
   const allTrackers = (trackers ?? []) as DailyTracker[]
-  const allSets = (recentSets ?? []) as SetRow[]
+  const allSessions = (sessions30 ?? []) as Session[]
+  const allSets = (sets30 ?? []) as SetRow[]
 
+  // Existing dashboard data
   const alerts = computeAlerts(allTrackers)
   const e1rmTrends = computeE1rmTrends(allSets)
   const fatigueScore = computeFatigueScore(allTrackers)
+
+  // Compliance chapter 4
+  const compliance = computeCompliance(allSessions, allSets)
+  const weeklyCompliance = computeWeeklyCompliance(allSessions, allSets)
+  const stagnation = computeStagnation(allSets)
+  const overreaching = computeOverreachingSignal(allTrackers, allSets)
 
   const bodyweightData = allTrackers
     .filter(t => t.bodyweight_kg != null)
@@ -43,12 +57,14 @@ export default async function AthleteDashboardPage({
     .reverse()
     .map(t => ({ date: format(parseISO(t.date), 'd MMM', { locale: fr }), kg: t.bodyweight_kg }))
 
+  const hasSignals = stagnation.detected || overreaching.detected
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* e1RM */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-          <h2 className="mb-4 text-xs uppercase tracking-wider text-zinc-400">e1RM estimés (2 sem.)</h2>
+          <h2 className="mb-4 text-xs uppercase tracking-wider text-zinc-400">e1RM estimés (4 sem.)</h2>
           <div className="grid grid-cols-3 gap-3">
             {e1rmTrends.map(t => (
               <div key={t.lift} className="text-center">
@@ -99,6 +115,19 @@ export default async function AthleteDashboardPage({
           )}
         </div>
       </div>
+
+      {/* Compliance + signaux */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <ComplianceCard data={compliance} />
+        <WeeklyComplianceChart data={weeklyCompliance} />
+      </div>
+
+      {hasSignals && (
+        <div className="space-y-2">
+          <StagnationBadge data={stagnation} />
+          <OverreachingBadge data={overreaching} />
+        </div>
+      )}
 
       {bodyweightData.length > 1 && <ProfilAthleteCharts bodyweightData={bodyweightData} trackers={allTrackers} />}
     </div>

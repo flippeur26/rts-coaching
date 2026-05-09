@@ -8,6 +8,7 @@ const navItems = [
   { href: '/athlete/traceurs', label: 'Traceurs', icon: '📊' },
   { href: '/athlete/historique', label: 'Historique', icon: '📅' },
   { href: '/athlete/invitations', label: 'Coachs', icon: '✉️' },
+  { href: '/athlete/parametres', label: 'Réglages', icon: '⚙️' },
 ]
 
 export default function AthleteNav() {

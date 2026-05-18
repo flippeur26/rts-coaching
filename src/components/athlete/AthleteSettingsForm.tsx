@@ -101,19 +101,6 @@ export default function AthleteSettingsForm({ athleteId, athleteName, initialSet
     setCustomPlate('')
   }
 
-  // Aperçu d'arrondi
-  const previewTargets = useMemo(() => [60, 87.3, 102.5, 142.7, 187.5], [])
-  const previewRows = useMemo(() => {
-    if (!settings) return []
-    return previewTargets.map(t => ({
-      target: t,
-      rounded: roundToAvailablePlates(t, {
-        bar_weight_kg: settings.bar_weight_kg,
-        collar_weight_kg: settings.collar_weight_kg,
-        available_plates_kg: settings.available_plates_kg,
-      }),
-    }))
-  }, [settings, previewTargets])
 
   if (loading) {
     return <p className="text-sm text-zinc-500">Chargement…</p>
@@ -159,52 +146,6 @@ export default function AthleteSettingsForm({ athleteId, athleteName, initialSet
         </p>
       </section>
 
-      {/* Barre + colliers */}
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-        <h2 className="mb-3 text-base font-semibold text-white">Barre & colliers</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">
-              Poids de la barre (kg)
-            </span>
-            <input
-              type="number"
-              step="0.5"
-              min="1"
-              max="50"
-              value={settings.bar_weight_kg}
-              onChange={e => {
-                const v = parseFloat(e.target.value)
-                if (Number.isFinite(v)) save({ bar_weight_kg: v })
-              }}
-              className="input-base w-full"
-            />
-            <span className="mt-1 block text-xs text-zinc-500">
-              Standard : 20 kg (olympique)
-            </span>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">
-              Poids d&apos;un collier (kg)
-            </span>
-            <input
-              type="number"
-              step="0.25"
-              min="0"
-              max="10"
-              value={settings.collar_weight_kg}
-              onChange={e => {
-                const v = parseFloat(e.target.value)
-                if (Number.isFinite(v)) save({ collar_weight_kg: v })
-              }}
-              className="input-base w-full"
-            />
-            <span className="mt-1 block text-xs text-zinc-500">
-              Compté ×2 (un par côté). 0 si pas utilisé.
-            </span>
-          </label>
-        </div>
-      </section>
 
       {/* Disques disponibles */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
@@ -280,38 +221,6 @@ export default function AthleteSettingsForm({ athleteId, athleteName, initialSet
         </div>
       </section>
 
-      {/* Aperçu d'arrondi */}
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-        <h2 className="mb-3 text-base font-semibold text-white">Aperçu d&apos;arrondi</h2>
-        <p className="mb-3 text-xs text-zinc-500">
-          Quand le système recommande une charge, elle est arrondie à la valeur la plus proche
-          réalisable avec ton équipement.
-        </p>
-        <table className="w-full text-sm">
-          <thead className="text-xs uppercase tracking-wider text-zinc-500">
-            <tr>
-              <th className="py-2 text-left">Charge cible</th>
-              <th className="py-2 text-right">Réalisable (la plus proche)</th>
-              <th className="py-2 text-right text-[11px] text-zinc-600">Écart</th>
-            </tr>
-          </thead>
-          <tbody>
-            {previewRows.map(({ target, rounded }) => (
-              <tr key={target} className="border-t border-zinc-800/60">
-                <td className="py-2 font-mono">{formatWeight(target, unit)}</td>
-                <td className="py-2 text-right font-mono text-orange-200">
-                  {formatWeight(rounded, unit)}
-                </td>
-                <td className="py-2 text-right font-mono text-[11px] text-zinc-500">
-                  {(rounded - target >= 0 ? '+' : '') +
-                    (rounded - target).toFixed(2).replace(/\.?0+$/, '')}{' '}
-                  kg
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
 
       {/* Status */}
       <div className="flex items-center gap-3 text-xs">

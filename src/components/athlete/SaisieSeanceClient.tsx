@@ -12,12 +12,13 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Session, Set as SetRow } from '@/types/database'
+import type { Session, Set as SetRow, BlockDisplayConfig } from '@/types/database'
 import SlotCardV2, { type SlotSetDraft, setRowToDraft } from '@/components/calendrier/SlotCardV2'
 
 interface Props {
   session: Session
   initialSets: SetRow[]
+  displayConfig?: BlockDisplayConfig | null
 }
 
 interface Slot {
@@ -53,7 +54,7 @@ function setsToSlots(sets: SetRow[]): Slot[] {
   return out
 }
 
-export default function SaisieSeanceClient({ session, initialSets }: Props) {
+export default function SaisieSeanceClient({ session, initialSets, displayConfig }: Props) {
   const router = useRouter()
   const [slots, setSlots] = useState<Slot[]>(() => setsToSlots(initialSets))
   const [sessionFeel, setSessionFeel] = useState(session.session_feel?.toString() ?? '')
@@ -194,6 +195,7 @@ export default function SaisieSeanceClient({ session, initialSets }: Props) {
               sets={slot.sets}
               isCoach={false}
               readonlyTarget
+              displayConfig={displayConfig ?? undefined}
               onSetChange={(i, field, value) => updateSet(slot.localId, i, field, value)}
               onSetBlur={i => saveSet(slot.localId, i)}
               onCopyTargetToActual={i => copyTargetToActual(slot.localId, i)}

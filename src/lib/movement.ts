@@ -55,16 +55,21 @@ export function themeForCategory(category: MovementCategory | null | undefined):
   }
 }
 
-/** Détection heuristique de catégorie depuis le nom (fallback quand pas d'exercice lié) */
+/**
+ * Détection heuristique de catégorie depuis le nom (fallback quand pas d'exercice lié).
+ *
+ * Source unique de vérité pour la classification d'exercices — utilisée côté client
+ * (composants UI, charts) ET serveur (routes API métriques/bornes).
+ */
 export function guessCategory(name: string): MovementCategory {
-  const n = name.toLowerCase()
-  if (/squat|sq\b/.test(n)) return 'Squat'
-  if (/deadlift|soulev|hinge|rdl|sdt|good morning/.test(n)) return 'Hinge'
-  if (/bench|développé couché|push[- ]?up/.test(n)) return 'Horizontal Push'
-  if (/row|tirage horiz/.test(n)) return 'Horizontal Pull'
-  if (/ohp|overhead|développé militaire|shoulder press/.test(n)) return 'Vertical Push'
-  if (/pull[- ]?up|chin[- ]?up|tractions|tirage vertical/.test(n)) return 'Vertical Pull'
-  if (/cardio|run|bike|row(ing)?\b|érgo/.test(n)) return 'Cardio'
+  const n = (name || '').toLowerCase()
+  if (/squat|sq\b|leg press|lunge|step.?up|wall sit|sled push|leg ext|hack/.test(n)) return 'Squat'
+  if (/deadlift|soulev|hinge|rdl|sdt|good morning|hip thrust|glute|hyper|leg curl|hamstring/.test(n)) return 'Hinge'
+  if (/bench|développé couché|push[- ]?up|flies|tricep/.test(n)) return 'Horizontal Push'
+  if (/ohp|overhead|développé militaire|shoulder press|military|push press|jerk|landmine press|log press|axle press/.test(n)) return 'Vertical Push'
+  if (/pull[- ]?up|chin[- ]?up|tractions|tirage vertical|pulldown|pull down|lat pull|atlas|rope/.test(n)) return 'Vertical Pull'
+  if (/row|tirage horiz|inverted/.test(n)) return 'Horizontal Pull'
+  if (/cardio|run|bike|erg|érgo|burpee/.test(n)) return 'Cardio'
   return 'Accessoire'
 }
 

@@ -13,7 +13,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import type { Session, Set as SetRow, Exercise } from '@/types/database'
+import type { Session, Set as SetRow, Exercise, BlockDisplayConfig } from '@/types/database'
 import SlotCardV2, {
   type SlotSetDraft,
   setRowToDraft,
@@ -58,6 +58,7 @@ interface Props {
   onClose: () => void
   onUpdate: () => void
   isCoach: boolean
+  displayConfig?: BlockDisplayConfig
 }
 
 /* ----------------- helpers ---------------------------------------------- */
@@ -134,7 +135,7 @@ function slotsToFlatSetsPayload(slots: Slot[]) {
 
 /* ----------------- composant ------------------------------------------- */
 
-export default function SeanceModal({ session, blockId, currentWeek, progressionConfigs, onClose, onUpdate, isCoach }: Props) {
+export default function SeanceModal({ session, blockId, currentWeek, progressionConfigs, onClose, onUpdate, isCoach, displayConfig }: Props) {
   const progressionMap = useMemo(() => {
     const m = new Map<string, ProgressionConfigEntry>()
     for (const c of progressionConfigs ?? []) m.set(c.exercise_name, c)
@@ -547,6 +548,10 @@ export default function SeanceModal({ session, blockId, currentWeek, progression
 
   /* ---------- totaux séance (live, pré-save) ---------- */
   const totals = useMemo(() => aggregateMany(slots), [slots])
+  const sessionHasActual = !!(totals.tonnage || totals.impulseActual || totals.ts)
+  const hideMode = displayConfig?.prescribed_only_if_not_started === true
+  const showTotalsPrescrit = !hideMode || !sessionHasActual
+  const showTotalsRealise = !hideMode || sessionHasActual
 
   const plannerSlot = plannerSlotId ? slots.find(s => s.localId === plannerSlotId) : null
   const plannerInitialE1RM = useMemo(() => {
@@ -685,6 +690,7 @@ export default function SeanceModal({ session, blockId, currentWeek, progression
                         onChangeExercise={() => setExerciseSelectorOpen({ slotId: slot.localId })}
                         onRemoveSlot={() => removeSlot(slot.localId)}
                         onApplyModifiers={data => applyModifiers(slot.localId, data)}
+                        displayConfig={displayConfig}
                       />
                     </div>
                     {plannerSlot?.localId === slot.localId && isCoach && (
@@ -710,28 +716,32 @@ export default function SeanceModal({ session, blockId, currentWeek, progression
               {(totals.tonnage || totals.ts || totals.impulseActual) ? (
                 <div ref={totalsRef} className="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 space-y-3">
                   {/* PRESCRIT row */}
-                  <div>
-                    <div className="text-[10px] uppercase text-zinc-600 mb-2">Prescrit</div>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                      <Stat label="Tonnage" value={totals.tonnagePrescribed ? `${totals.tonnagePrescribed.toFixed(0)} kg` : '—'} color="text-zinc-500" />
-                      <Stat label="Impulse" value={totals.impulsePrescribed ? `${totals.impulsePrescribed.toFixed(1)}` : '—'} color="text-zinc-500" />
-                      <Stat label="CS" value={totals.csPrescribed ? totals.csPrescribed.toFixed(2) : '—'} color="text-blue-400" />
-                      <Stat label="PS" value={totals.psPrescribed ? totals.psPrescribed.toFixed(2) : '—'} color="text-amber-400" />
-                      <Stat label="TS" value={totals.tsPrescribed ? totals.tsPrescribed.toFixed(2) : '—'} color="text-emerald-400" />
+                  {showTotalsPrescrit && (
+                    <div>
+                      <div className="text-[10px] uppercase text-zinc-600 mb-2">Prescrit</div>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                        <Stat label="Tonnage" value={totals.tonnagePrescribed ? `${totals.tonnagePrescribed.toFixed(0)} kg` : '—'} color="text-zinc-500" />
+                        <Stat label="Impulse" value={totals.impulsePrescribed ? `${totals.impulsePrescribed.toFixed(1)}` : '—'} color="text-zinc-500" />
+                        <Stat label="CS" value={totals.csPrescribed ? totals.csPrescribed.toFixed(2) : '—'} color="text-blue-400" />
+                        <Stat label="PS" value={totals.psPrescribed ? totals.psPrescribed.toFixed(2) : '—'} color="text-amber-400" />
+                        <Stat label="TS" value={totals.tsPrescribed ? totals.tsPrescribed.toFixed(2) : '—'} color="text-emerald-400" />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* RÉALISÉ row */}
-                  <div className="pt-2 border-t border-zinc-700">
-                    <div className="text-[10px] uppercase text-zinc-400 mb-2">Réalisé</div>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                      <Stat label="Tonnage" value={totals.tonnage ? `${totals.tonnage.toFixed(0)} kg` : '—'} color="text-zinc-100" />
-                      <Stat label="Impulse" value={totals.impulseActual ? `${totals.impulseActual.toFixed(1)}` : '—'} color="text-zinc-100" />
-                      <Stat label="CS" value={totals.cs ? totals.cs.toFixed(2) : '—'} color="text-blue-300" />
-                      <Stat label="PS" value={totals.ps ? totals.ps.toFixed(2) : '—'} color="text-amber-300" />
-                      <Stat label="TS" value={totals.ts ? totals.ts.toFixed(2) : '—'} color="text-emerald-300" />
+                  {showTotalsRealise && (
+                    <div className={showTotalsPrescrit ? 'pt-2 border-t border-zinc-700' : ''}>
+                      <div className="text-[10px] uppercase text-zinc-400 mb-2">Réalisé</div>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                        <Stat label="Tonnage" value={totals.tonnage ? `${totals.tonnage.toFixed(0)} kg` : '—'} color="text-zinc-100" />
+                        <Stat label="Impulse" value={totals.impulseActual ? `${totals.impulseActual.toFixed(1)}` : '—'} color="text-zinc-100" />
+                        <Stat label="CS" value={totals.cs ? totals.cs.toFixed(2) : '—'} color="text-blue-300" />
+                        <Stat label="PS" value={totals.ps ? totals.ps.toFixed(2) : '—'} color="text-amber-300" />
+                        <Stat label="TS" value={totals.ts ? totals.ts.toFixed(2) : '—'} color="text-emerald-300" />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : null}
             </div>

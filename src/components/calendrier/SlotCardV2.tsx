@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/Icon'
 import { themeForExercise, type MovementCategory } from '@/lib/movement'
 import { aggregateSlot } from '@/lib/rts-aggregate'
-import type { Set as SetRow } from '@/types/database'
+import type { Set as SetRow, BlockDisplayConfig } from '@/types/database'
 
 export interface SlotSetDraft {
   /** id DB (présent si déjà sauvegardé) */
@@ -151,6 +151,7 @@ export interface SlotCardV2Props {
    *  format = nouvelle valeur de exercise_format (ex: "Spoto · Larsen")
    *  tempo + rom = appliqués à tous les sets du slot */
   onApplyModifiers?: (data: { format: string | null; tempo: string; rom: string }) => void
+  displayConfig?: BlockDisplayConfig
 }
 
 // Agrégation déléguée à `src/lib/rts-aggregate.ts` (calcul live pré-save,
@@ -180,6 +181,7 @@ export default function SlotCardV2({
   onChangeExercise,
   onRemoveSlot,
   onApplyModifiers,
+  displayConfig,
 }: SlotCardV2Props) {
   const theme = useMemo(() => themeForExercise(exerciseName, category), [exerciseName, category])
   const summary = useMemo(() => aggregateSlot(sets), [sets])
@@ -235,6 +237,15 @@ export default function SlotCardV2({
   }
 
   const targetReadonly = readonlyTarget ?? !isCoach
+
+  const slotHasActual = !!(summary.tonnage || summary.cs || summary.impulseActual)
+  const summaryHideMode = displayConfig?.prescribed_only_if_not_started === true
+  const showPrescribedSummary = !summaryHideMode || !slotHasActual
+  const showActualSummary = !summaryHideMode || slotHasActual
+
+  function setShowsTarget(_s: SlotSetDraft) {
+    return true
+  }
 
   return (
     <div
@@ -388,52 +399,64 @@ export default function SlotCardV2({
             </tr>
           </thead>
           <tbody>
-            {sets.map((row, i) => (
+            {sets.map((row, i) => {
+              const targetVisible = setShowsTarget(row)
+              return (
               <tr key={row.id ?? `new-${i}`} className="text-sm">
                 <td className="text-center text-xs text-zinc-500">{i + 1}</td>
 
                 {/* TARGET */}
-                <td>
-                  <input
-                    className="input-target"
-                    inputMode="decimal"
-                    type="number"
-                    step="2.5"
-                    value={row.weight_prescribed_kg}
-                    readOnly={targetReadonly}
-                    onChange={e => onSetChange(i, 'weight_prescribed_kg', e.target.value)}
-                    onBlur={() => onSetBlur?.(i)}
-                    placeholder="—"
-                  />
-                </td>
-                <td>
-                  <input
-                    className="input-target"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    value={row.reps_prescribed}
-                    readOnly={targetReadonly}
-                    onChange={e => onSetChange(i, 'reps_prescribed', e.target.value)}
-                    onBlur={() => onSetBlur?.(i)}
-                    placeholder="—"
-                  />
-                </td>
-                <td>
-                  <input
-                    className="input-target"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.5"
-                    min={5}
-                    max={10}
-                    value={row.rpe_prescribed}
-                    readOnly={targetReadonly}
-                    onChange={e => onSetChange(i, 'rpe_prescribed', e.target.value)}
-                    onBlur={() => onSetBlur?.(i)}
-                    placeholder="—"
-                  />
-                </td>
+                {targetVisible ? (
+                  <>
+                    <td>
+                      <input
+                        className="input-target"
+                        inputMode="decimal"
+                        type="number"
+                        step="2.5"
+                        value={row.weight_prescribed_kg}
+                        readOnly={targetReadonly}
+                        onChange={e => onSetChange(i, 'weight_prescribed_kg', e.target.value)}
+                        onBlur={() => onSetBlur?.(i)}
+                        placeholder="—"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="input-target"
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        value={row.reps_prescribed}
+                        readOnly={targetReadonly}
+                        onChange={e => onSetChange(i, 'reps_prescribed', e.target.value)}
+                        onBlur={() => onSetBlur?.(i)}
+                        placeholder="—"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="input-target"
+                        type="number"
+                        inputMode="decimal"
+                        step="0.5"
+                        min={5}
+                        max={10}
+                        value={row.rpe_prescribed}
+                        readOnly={targetReadonly}
+                        onChange={e => onSetChange(i, 'rpe_prescribed', e.target.value)}
+                        onBlur={() => onSetBlur?.(i)}
+                        placeholder="—"
+                      />
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="text-center text-xs text-zinc-700">—</td>
+                    <td className="text-center text-xs text-zinc-700">—</td>
+                    <td className="text-center text-xs text-zinc-700">—</td>
+                  </>
+                )}
 
                 {/* Flèche Target → Actual */}
                 <td className="text-center">
@@ -509,60 +532,69 @@ export default function SlotCardV2({
                   </div>
                 </td>
               </tr>
-            ))}
+              )
+            })}
 
             {/* Computed metrics — 2 sections PRESCRIT/RÉALISÉ */}
             {/* PRESCRIT section */}
-            <tr className="text-center text-[10px] text-zinc-600 [&_td]:pt-3 [&_td]:pb-1 border-t border-zinc-700">
-              <td colSpan={9} className="text-left pl-2">Prescrit</td>
-            </tr>
-            <tr className="text-center text-xs text-zinc-500 [&_td]:pb-2 [&_td]:font-mono [&_td]:text-[10px]">
-              <td />
-              <td>Tonnage</td>
-              <td>NL</td>
-              <td>Impulse</td>
-              <td>CS</td>
-              <td>PS</td>
-              <td>TS</td>
-              <td colSpan={2} />
-            </tr>
-            <tr className="text-center text-xs text-zinc-500 [&_td]:pb-2 [&_td]:font-mono">
-              <td />
-              <td>{summary.tonnagePrescribed != null ? summary.tonnagePrescribed.toFixed(0) : '—'}</td>
-              <td>{summary.nlPrescribed != null ? summary.nlPrescribed : '—'}</td>
-              <td>{summary.impulsePrescribed != null ? summary.impulsePrescribed.toFixed(1) : '—'}</td>
-              <td>{summary.csPrescribed != null ? summary.csPrescribed.toFixed(2) : '—'}</td>
-              <td>{summary.psPrescribed != null ? summary.psPrescribed.toFixed(2) : '—'}</td>
-              <td>{summary.tsPrescribed != null ? summary.tsPrescribed.toFixed(2) : '—'}</td>
-              <td colSpan={2} />
-            </tr>
+            {showPrescribedSummary && (
+              <>
+                <tr className="text-center text-[10px] text-zinc-600 [&_td]:pt-3 [&_td]:pb-1 border-t border-zinc-700">
+                  <td colSpan={9} className="text-left pl-2">Prescrit</td>
+                </tr>
+                <tr className="text-center text-xs text-zinc-500 [&_td]:pb-2 [&_td]:font-mono [&_td]:text-[10px]">
+                  <td />
+                  <td>Tonnage</td>
+                  <td>NL</td>
+                  <td>Impulse</td>
+                  <td>CS</td>
+                  <td>PS</td>
+                  <td>TS</td>
+                  <td colSpan={2} />
+                </tr>
+                <tr className="text-center text-xs text-zinc-500 [&_td]:pb-2 [&_td]:font-mono">
+                  <td />
+                  <td>{summary.tonnagePrescribed != null ? summary.tonnagePrescribed.toFixed(0) : '—'}</td>
+                  <td>{summary.nlPrescribed != null ? summary.nlPrescribed : '—'}</td>
+                  <td>{summary.impulsePrescribed != null ? summary.impulsePrescribed.toFixed(1) : '—'}</td>
+                  <td>{summary.csPrescribed != null ? summary.csPrescribed.toFixed(2) : '—'}</td>
+                  <td>{summary.psPrescribed != null ? summary.psPrescribed.toFixed(2) : '—'}</td>
+                  <td>{summary.tsPrescribed != null ? summary.tsPrescribed.toFixed(2) : '—'}</td>
+                  <td colSpan={2} />
+                </tr>
+              </>
+            )}
 
             {/* RÉALISÉ section */}
-            <tr className="text-center text-[10px] text-zinc-500 [&_td]:pt-3 [&_td]:pb-1 border-t border-zinc-700">
-              <td colSpan={9} className="text-left pl-2">Réalisé</td>
-            </tr>
-            <tr className="text-center text-xs text-zinc-400 [&_td]:pb-2 [&_td]:font-mono [&_td]:text-[10px]">
-              <td />
-              <td>E1RM</td>
-              <td>Tonnage</td>
-              <td>NL</td>
-              <td>Impulse</td>
-              <td>CS</td>
-              <td>PS</td>
-              <td>TS</td>
-              <td />
-            </tr>
-            <tr className="text-center text-sm text-zinc-200 [&_td]:pb-2 [&_td]:font-mono">
-              <td />
-              <td>{summary.e1rm != null ? summary.e1rm.toFixed(1) : '—'}</td>
-              <td>{summary.tonnage != null ? summary.tonnage.toFixed(0) : '—'}</td>
-              <td>{summary.nl ?? '—'}</td>
-              <td>{summary.impulseActual != null ? summary.impulseActual.toFixed(1) : '—'}</td>
-              <td>{summary.cs != null ? summary.cs.toFixed(2) : '—'}</td>
-              <td>{summary.ps != null ? summary.ps.toFixed(2) : '—'}</td>
-              <td>{summary.ts != null ? summary.ts.toFixed(2) : '—'}</td>
-              <td />
-            </tr>
+            {showActualSummary && (
+              <>
+                <tr className="text-center text-[10px] text-zinc-500 [&_td]:pt-3 [&_td]:pb-1 border-t border-zinc-700">
+                  <td colSpan={9} className="text-left pl-2">Réalisé</td>
+                </tr>
+                <tr className="text-center text-xs text-zinc-400 [&_td]:pb-2 [&_td]:font-mono [&_td]:text-[10px]">
+                  <td />
+                  <td>Tonnage</td>
+                  <td>NL</td>
+                  <td>Impulse</td>
+                  <td>CS</td>
+                  <td>PS</td>
+                  <td>TS</td>
+                  <td>E1RM</td>
+                  <td />
+                </tr>
+                <tr className="text-center text-sm text-zinc-200 [&_td]:pb-2 [&_td]:font-mono">
+                  <td />
+                  <td>{summary.tonnage != null ? summary.tonnage.toFixed(0) : '—'}</td>
+                  <td>{summary.nl ?? '—'}</td>
+                  <td>{summary.impulseActual != null ? summary.impulseActual.toFixed(1) : '—'}</td>
+                  <td>{summary.cs != null ? summary.cs.toFixed(2) : '—'}</td>
+                  <td>{summary.ps != null ? summary.ps.toFixed(2) : '—'}</td>
+                  <td>{summary.ts != null ? summary.ts.toFixed(2) : '—'}</td>
+                  <td>{summary.e1rm != null ? summary.e1rm.toFixed(1) : '—'}</td>
+                  <td />
+                </tr>
+              </>
+            )}
           </tbody>
         </table>
 
@@ -577,51 +609,55 @@ export default function SlotCardV2({
           </div>
 
           <div className="space-y-2">
-            {sets.map((row, i) => (
+            {sets.map((row, i) => {
+              const targetVisible = setShowsTarget(row)
+              return (
               <div key={row.id ?? `new-${i}`} className="rounded-md p-1">
                 {/* TARGET row */}
-                <div className="mb-1 grid grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-center gap-1 text-center text-xs">
-                  <div className="text-zinc-600">{i + 1}</div>
-                  <input
-                    className="input-target"
-                    inputMode="decimal" type="number" step="2.5"
-                    value={row.weight_prescribed_kg}
-                    readOnly={targetReadonly}
-                    onChange={e => onSetChange(i, 'weight_prescribed_kg', e.target.value)}
-                    onBlur={() => onSetBlur?.(i)}
-                    placeholder="—"
-                  />
-                  <input
-                    className="input-target"
-                    type="number" inputMode="numeric" min={1}
-                    value={row.reps_prescribed}
-                    readOnly={targetReadonly}
-                    onChange={e => onSetChange(i, 'reps_prescribed', e.target.value)}
-                    onBlur={() => onSetBlur?.(i)}
-                    placeholder="—"
-                  />
-                  <input
-                    className="input-target"
-                    type="number" inputMode="decimal" step="0.5" min={5} max={10}
-                    value={row.rpe_prescribed}
-                    readOnly={targetReadonly}
-                    onChange={e => onSetChange(i, 'rpe_prescribed', e.target.value)}
-                    onBlur={() => onSetBlur?.(i)}
-                    placeholder="—"
-                  />
-                  <div className="flex justify-end">
-                    {onCopyTargetToActual && (
-                      <button
-                        className="btn-icon"
-                        title="Copier dans le réalisé"
-                        aria-label="Copier dans le réalisé"
-                        onClick={() => onCopyTargetToActual(i)}
-                      >
-                        <MoveDown className="size-4" />
-                      </button>
-                    )}
+                {targetVisible && (
+                  <div className="mb-1 grid grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-center gap-1 text-center text-xs">
+                    <div className="text-zinc-600">{i + 1}</div>
+                    <input
+                      className="input-target"
+                      inputMode="decimal" type="number" step="2.5"
+                      value={row.weight_prescribed_kg}
+                      readOnly={targetReadonly}
+                      onChange={e => onSetChange(i, 'weight_prescribed_kg', e.target.value)}
+                      onBlur={() => onSetBlur?.(i)}
+                      placeholder="—"
+                    />
+                    <input
+                      className="input-target"
+                      type="number" inputMode="numeric" min={1}
+                      value={row.reps_prescribed}
+                      readOnly={targetReadonly}
+                      onChange={e => onSetChange(i, 'reps_prescribed', e.target.value)}
+                      onBlur={() => onSetBlur?.(i)}
+                      placeholder="—"
+                    />
+                    <input
+                      className="input-target"
+                      type="number" inputMode="decimal" step="0.5" min={5} max={10}
+                      value={row.rpe_prescribed}
+                      readOnly={targetReadonly}
+                      onChange={e => onSetChange(i, 'rpe_prescribed', e.target.value)}
+                      onBlur={() => onSetBlur?.(i)}
+                      placeholder="—"
+                    />
+                    <div className="flex justify-end">
+                      {onCopyTargetToActual && (
+                        <button
+                          className="btn-icon"
+                          title="Copier dans le réalisé"
+                          aria-label="Copier dans le réalisé"
+                          onClick={() => onCopyTargetToActual(i)}
+                        >
+                          <MoveDown className="size-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* ACTUAL row */}
                 <div className="grid grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-center gap-1">
@@ -673,28 +709,31 @@ export default function SlotCardV2({
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* computed mobile */}
           <div className="mt-3 space-y-1">
             {/* PRESCRIT section */}
-            <div>
-              <div className="text-[10px] uppercase text-zinc-600 mb-1">Prescrit</div>
-              <div className="grid grid-cols-5 gap-1 text-center text-[10px] uppercase text-zinc-600">
-                <div>Tonnage</div><div>NL</div><div>Impulse</div><div>CS</div><div>PS</div>
+            {showPrescribedSummary && (
+              <div>
+                <div className="text-[10px] uppercase text-zinc-600 mb-1">Prescrit</div>
+                <div className="grid grid-cols-5 gap-1 text-center text-[10px] uppercase text-zinc-600">
+                  <div>Tonnage</div><div>NL</div><div>Impulse</div><div>CS</div><div>PS</div>
+                </div>
+                <div className="grid grid-cols-5 gap-1 text-center text-xs font-mono text-zinc-500 mb-2 pb-2 border-b border-zinc-700">
+                  <div>{summary.tonnagePrescribed != null ? summary.tonnagePrescribed.toFixed(0) : '—'}</div>
+                  <div>{summary.nlPrescribed != null ? summary.nlPrescribed : '—'}</div>
+                  <div>{summary.impulsePrescribed != null ? summary.impulsePrescribed.toFixed(1) : '—'}</div>
+                  <div>{summary.csPrescribed != null ? summary.csPrescribed.toFixed(2) : '—'}</div>
+                  <div>{summary.psPrescribed != null ? summary.psPrescribed.toFixed(2) : '—'}</div>
+                </div>
               </div>
-              <div className="grid grid-cols-5 gap-1 text-center text-xs font-mono text-zinc-500 mb-2 pb-2 border-b border-zinc-700">
-                <div>{summary.tonnagePrescribed != null ? summary.tonnagePrescribed.toFixed(0) : '—'}</div>
-                <div>{summary.nlPrescribed != null ? summary.nlPrescribed : '—'}</div>
-                <div>{summary.impulsePrescribed != null ? summary.impulsePrescribed.toFixed(1) : '—'}</div>
-                <div>{summary.csPrescribed != null ? summary.csPrescribed.toFixed(2) : '—'}</div>
-                <div>{summary.psPrescribed != null ? summary.psPrescribed.toFixed(2) : '—'}</div>
-              </div>
-            </div>
+            )}
 
             {/* RÉALISÉ + E1RM side-by-side */}
-            <div className="flex gap-4">
+            {showActualSummary && <div className="flex gap-4">
               {/* RÉALISÉ — left/center */}
               <div className="flex-1">
                 <div className="text-[10px] uppercase text-zinc-400 mb-1">Réalisé</div>
@@ -722,7 +761,7 @@ export default function SlotCardV2({
                   <div className="text-2xl font-mono text-zinc-100 font-bold">{summary.e1rm != null ? summary.e1rm.toFixed(1) : '—'}</div>
                 </div>
               </div>
-            </div>
+            </div>}
           </div>
         </div>
 

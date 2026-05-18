@@ -1,7 +1,22 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { ok, ERRORS } from '@/lib/api-helpers'
+import { ok, err, ERRORS } from '@/lib/api-helpers'
 import { z } from 'zod'
+
+const displayConfigSchema = z.object({
+  show_tonnage: z.boolean(),
+  show_impulse: z.boolean(),
+  show_cs: z.boolean(),
+  show_ps: z.boolean(),
+  show_ts: z.boolean(),
+  show_ratio_ac: z.boolean(),
+  show_mean_rpe: z.boolean(),
+  show_sets_by_category: z.boolean(),
+  show_nl: z.boolean(),
+  show_metrics_prescribed: z.boolean(),
+  show_metrics_actual: z.boolean(),
+  prescribed_only_if_not_started: z.boolean(),
+})
 
 const updateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -13,6 +28,7 @@ const updateSchema = z.object({
   weeks_to_competition: z.number().int().min(0).max(52).nullable().optional(),
   is_taper: z.boolean().optional(),
   taper_volume_reduction_pct: z.number().min(0).max(100).nullable().optional(),
+  display_config: displayConfigSchema.optional(),
 })
 
 export async function PATCH(
@@ -35,7 +51,11 @@ export async function PATCH(
 
   const { data, error } = await supabase
     .from('blocks').update(parsed.data).eq('id', id).select().single()
-  if (error) return ERRORS.SERVER()
+  if (error) {
+    console.error('[PATCH /api/blocks/:id] supabase error', error)
+    // Expose message Supabase pour debug (column missing, etc.)
+    return err(error.message ?? 'Erreur serveur', 'INTERNAL_ERROR', 500)
+  }
   return ok(data)
 }
 

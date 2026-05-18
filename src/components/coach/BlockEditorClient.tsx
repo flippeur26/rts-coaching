@@ -19,9 +19,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format, parseISO, addDays, startOfWeek } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import type { Block, Session, Set as SetRow } from '@/types/database'
+import type { Block, Session, Set as SetRow, BlockDisplayConfig } from '@/types/database'
+import { DEFAULT_DISPLAY_CONFIG } from '@/types/database'
 import SeanceModal, { type ProgressionConfigEntry } from '@/components/calendrier/SeanceModal'
-import LiveMetricsPanel from './LiveMetricsPanel'
+import type { WeekMetric } from './LiveMetricsPanel'
+import WeekDailyCharts from './WeekDailyCharts'
+import WeekSelectorStrip from './block-editor/WeekSelectorStrip'
+import CategoryFilterStrip from './block-editor/CategoryFilterStrip'
+import GaugesGrid from './block-editor/GaugesGrid'
+import type { CategoryFilter } from '@/lib/category-filter'
+import type { BoundsResponse } from '@/lib/bounds-engine'
 import { Plus } from '@/components/ui/Icon'
 
 type SessionWithSets = Session & { sets: SetRow[] }
@@ -37,25 +44,31 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
   const [sessions, setSessions] = useState<SessionWithSets[]>(initialSessions)
   const [progressionConfigs, setProgressionConfigs] = useState<ProgressionConfigEntry[]>([])
   const [activeWeek, setActiveWeek] = useState<number>(1)
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('Tous')
+  const [weekMetrics, setWeekMetrics] = useState<WeekMetric[]>([])
+  const [bounds, setBounds] = useState<BoundsResponse | null>(null)
   const [openSession, setOpenSession] = useState<SessionWithSets | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const totalWeeks = block.total_weeks ?? 4
 
-  // Charger les configs de progression au mount (initialSessions n'inclut pas les configs)
+  // Charger configs de progression + metrics + bounds en parallèle
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/blocks/${block.id}/full`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (cancelled || !data) return
-        setProgressionConfigs(data.progression_configs ?? [])
-      })
-      .catch(() => {})
+    Promise.all([
+      fetch(`/api/blocks/${block.id}/full`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/blocks/${block.id}/metrics`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/blocks/${block.id}/bounds`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([full, metrics, boundsData]) => {
+      if (cancelled) return
+      if (full) setProgressionConfigs(full.progression_configs ?? [])
+      if (metrics) setWeekMetrics(metrics.weeks ?? [])
+      if (boundsData) setBounds(boundsData.bounds ?? null)
+    })
     return () => {
       cancelled = true
     }
-  }, [block.id])
+  }, [block.id, refreshKey])
 
   /** Sessions groupées par semaine */
   const sessionsByWeek = useMemo(() => {
@@ -196,8 +209,17 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
   )
 
   /* -------- mettre à jour les meta du bloc -------- */
+  const [updateError, setUpdateError] = useState<string | null>(null)
   const updateBlock = useCallback(
     async (patch: Partial<Block>) => {
+      setUpdateError(null)
+      let previous: Block | null = null
+      // Optimistic update — applique localement avant la réponse serveur
+      setBlock(prev => {
+        previous = prev
+        return { ...prev, ...patch } as Block
+      })
+
       const res = await fetch(`/api/blocks/${block.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -206,6 +228,17 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
       if (res.ok) {
         const updated: Block = await res.json()
         setBlock(updated)
+        return
+      }
+
+      // Revert
+      if (previous) setBlock(previous)
+      const e = await res.json().catch(() => null)
+      const msg = e?.error ?? `Erreur ${res.status}`
+      if (patch.display_config && /display_config|column|schema/i.test(msg)) {
+        setUpdateError(`Migration manquante : exécuter 018_block_display_config.sql en Supabase. (${msg})`)
+      } else {
+        setUpdateError(msg)
       }
     },
     [block.id],
@@ -217,32 +250,51 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
       {/* Header bloc */}
       <BlockHeader block={block} onUpdate={updateBlock} />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_360px]">
-        <div className="space-y-3">
-
-          {/* Grille hebdo (Lun → Dim) avec séances par jour */}
-          <WeekSessions
-            weekNum={activeWeek}
-            sessions={currentWeekSessions}
-            onOpen={setOpenSession}
-            onAdd={(date) => addSessionToDay(activeWeek, date)}
-            onDelete={deleteSession}
-            blockStart={block.start_date}
-            onRecalc={activeWeek === 1 ? recalcWeights : undefined}
-          />
+      {updateError && (
+        <div className="rounded-lg border border-red-900 bg-red-950/40 px-4 py-2 text-sm text-red-300">
+          {updateError}
+          <button
+            className="ml-2 text-xs underline opacity-70 hover:opacity-100"
+            onClick={() => setUpdateError(null)}
+          >
+            fermer
+          </button>
         </div>
+      )}
 
-        {/* Live metrics */}
-        <aside className="xl:sticky xl:top-4">
-          <LiveMetricsPanel
-            blockId={block.id}
-            refreshKey={refreshKey}
-            activeWeek={activeWeek}
-            onSelectWeek={setActiveWeek}
-            totalWeeks={totalWeeks}
-          />
-        </aside>
-      </div>
+      {/* 1. Sélecteur semaine */}
+      <WeekSelectorStrip totalWeeks={totalWeeks} active={activeWeek} onChange={setActiveWeek} />
+
+      {/* 2. Grille 7 jours (template) */}
+      <WeekSessions
+        weekNum={activeWeek}
+        sessions={currentWeekSessions}
+        onOpen={setOpenSession}
+        onAdd={(date) => addSessionToDay(activeWeek, date)}
+        onDelete={deleteSession}
+        blockStart={block.start_date}
+        onRecalc={activeWeek === 1 ? recalcWeights : undefined}
+      />
+
+      {/* 3. Filtre catégorie */}
+      <CategoryFilterStrip value={categoryFilter} onChange={setCategoryFilter} />
+
+      {/* 4. Courbes CS/PS/Impulse par jour */}
+      <WeekDailyCharts
+        activeWeek={activeWeek}
+        blockStart={block.start_date}
+        currentWeekSessions={currentWeekSessions}
+        displayConfig={block.display_config ?? DEFAULT_DISPLAY_CONFIG}
+        categoryFilter={categoryFilter}
+      />
+
+      {/* 5. Jauges */}
+      <GaugesGrid
+        metric={weekMetrics.find(w => w.week === activeWeek)}
+        bounds={bounds}
+        category={categoryFilter}
+        displayConfig={block.display_config ?? DEFAULT_DISPLAY_CONFIG}
+      />
 
       {openSession && (
         <SeanceModal
@@ -253,6 +305,7 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
           onClose={() => setOpenSession(null)}
           onUpdate={openSession.week_in_block === 1 ? syncFromS1 : reload}
           isCoach
+          displayConfig={block.display_config ?? DEFAULT_DISPLAY_CONFIG}
         />
       )}
     </div>
@@ -261,23 +314,45 @@ export default function BlockEditorClient({ initialBlock, initialSessions, athle
 
 /* ------------------ sous-composants ------------------ */
 
+const DISPLAY_OPTIONS: Array<{ key: keyof BlockDisplayConfig; label: string; group: 'metrics' | 'view' }> = [
+  { key: 'show_tonnage',              label: 'Tonnage',                       group: 'metrics' },
+  { key: 'show_nl',                   label: 'NL (nbre lifts)',               group: 'metrics' },
+  { key: 'show_impulse',              label: 'Impulse',                       group: 'metrics' },
+  { key: 'show_cs',                   label: 'CS (Central Stress)',           group: 'metrics' },
+  { key: 'show_ps',                   label: 'PS (Peripheral Stress)',        group: 'metrics' },
+  { key: 'show_ts',                   label: 'TS (Total Stress)',             group: 'metrics' },
+  { key: 'show_ratio_ac',             label: 'Ratio A/C',                     group: 'metrics' },
+  { key: 'show_mean_rpe',             label: 'RPE moyen',                     group: 'metrics' },
+  { key: 'show_sets_by_category',     label: 'Sets par catégorie',           group: 'metrics' },
+  { key: 'show_metrics_prescribed',   label: 'Colonne Prescrit',              group: 'view' },
+  { key: 'show_metrics_actual',       label: 'Colonne Réalisé',              group: 'view' },
+  { key: 'prescribed_only_if_not_started', label: 'Masquer prescrit si actual rempli (par set)', group: 'view' },
+]
+
 function BlockHeader({ block, onUpdate }: { block: Block; onUpdate: (patch: Partial<Block>) => void }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(block.name)
   const [type, setType] = useState<Block['type']>(block.type)
   const [totalWeeks, setTotalWeeks] = useState(block.total_weeks?.toString() ?? '')
+  const [displayConfig, setDisplayConfig] = useState<BlockDisplayConfig>(() => block.display_config ?? DEFAULT_DISPLAY_CONFIG)
+
+  // Sync si block change depuis parent (ex: après reload)
+  useEffect(() => { setDisplayConfig(block.display_config ?? DEFAULT_DISPLAY_CONFIG) }, [block.display_config])
 
   function save() {
-    const patch: Partial<Block> = {
-      name,
-      type,
-      total_weeks: totalWeeks ? parseInt(totalWeeks) : null,
-    }
-    onUpdate(patch)
+    onUpdate({ name, type, total_weeks: totalWeeks ? parseInt(totalWeeks) : null })
     setEditing(false)
   }
 
+  function toggleDisplayOption(key: keyof BlockDisplayConfig, value: boolean) {
+    const next = { ...displayConfig, [key]: value }
+    setDisplayConfig(next)
+    onUpdate({ display_config: next })
+  }
+
   if (editing) {
+    const metricsOpts = DISPLAY_OPTIONS.filter(o => o.group === 'metrics')
+    const viewOpts = DISPLAY_OPTIONS.filter(o => o.group === 'view')
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -289,6 +364,43 @@ function BlockHeader({ block, onUpdate }: { block: Block; onUpdate: (patch: Part
           </select>
           <input className="input-base" type="number" min={1} max={20} value={totalWeeks} onChange={e => setTotalWeeks(e.target.value)} placeholder="Semaines" />
         </div>
+
+        {/* Config affichage métriques */}
+        <div className="mt-4 border-t border-zinc-800 pt-3 space-y-3">
+          <div>
+            <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500">Métriques visibles (panneau + exercices)</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+              {metricsOpts.map(opt => (
+                <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={displayConfig[opt.key] as boolean}
+                    onChange={e => toggleDisplayOption(opt.key, e.target.checked)}
+                    className="size-3.5 rounded border-zinc-600 bg-zinc-900 accent-orange-500"
+                  />
+                  <span className="text-xs text-zinc-300">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500">Colonnes métriques</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+              {viewOpts.map(opt => (
+                <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={displayConfig[opt.key] as boolean}
+                    onChange={e => toggleDisplayOption(opt.key, e.target.checked)}
+                    className="size-3.5 rounded border-zinc-600 bg-zinc-900 accent-orange-500"
+                  />
+                  <span className="text-xs text-zinc-300">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="mt-3 flex justify-end gap-2">
           <button className="btn-secondary" onClick={() => setEditing(false)}>Annuler</button>
           <button className="btn-primary" onClick={save}>Sauvegarder</button>

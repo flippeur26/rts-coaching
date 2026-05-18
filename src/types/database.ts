@@ -120,6 +120,7 @@ export type Database = {
           weeks_to_competition: number | null
           is_taper: boolean
           taper_volume_reduction_pct: number | null
+          display_config: BlockDisplayConfig
           created_at: string
         }
         Insert: {
@@ -135,6 +136,7 @@ export type Database = {
           weeks_to_competition?: number | null
           is_taper?: boolean
           taper_volume_reduction_pct?: number | null
+          display_config?: BlockDisplayConfig
           created_at?: string
         }
         Update: {
@@ -150,6 +152,7 @@ export type Database = {
           weeks_to_competition?: number | null
           is_taper?: boolean
           taper_volume_reduction_pct?: number | null
+          display_config?: BlockDisplayConfig
         }
         Relationships: []
       }
@@ -743,6 +746,37 @@ export type Database = {
 
 // Types dérivés pour usage dans l'app
 export type Profile = Database['public']['Tables']['profiles']['Row']
+
+export interface BlockDisplayConfig {
+  show_tonnage: boolean
+  show_impulse: boolean
+  show_cs: boolean
+  show_ps: boolean
+  show_ts: boolean
+  show_ratio_ac: boolean
+  show_mean_rpe: boolean
+  show_sets_by_category: boolean
+  show_nl: boolean
+  show_metrics_prescribed: boolean
+  show_metrics_actual: boolean
+  prescribed_only_if_not_started: boolean
+}
+
+export const DEFAULT_DISPLAY_CONFIG: BlockDisplayConfig = {
+  show_tonnage: true,
+  show_impulse: true,
+  show_cs: true,
+  show_ps: true,
+  show_ts: true,
+  show_ratio_ac: true,
+  show_mean_rpe: true,
+  show_sets_by_category: true,
+  show_nl: true,
+  show_metrics_prescribed: true,
+  show_metrics_actual: true,
+  prescribed_only_if_not_started: false,
+}
+
 export type Block = Database['public']['Tables']['blocks']['Row']
 export type Session = Database['public']['Tables']['sessions']['Row']
 export type Set = Database['public']['Tables']['sets']['Row']

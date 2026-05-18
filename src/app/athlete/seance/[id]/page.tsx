@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import SaisieSeanceClient from '@/components/athlete/SaisieSeanceClient'
+import type { BlockDisplayConfig } from '@/types/database'
 
 export default async function AthleteSeancePage({
   params,
@@ -23,11 +24,14 @@ export default async function AthleteSeancePage({
 
   if (!session) notFound()
 
-  const { data: sets } = await supabase
-    .from('sets')
-    .select('*')
-    .eq('session_id', id)
-    .order('set_number', { ascending: true })
+  const [{ data: sets }, { data: block }] = await Promise.all([
+    supabase.from('sets').select('*').eq('session_id', id).order('set_number', { ascending: true }),
+    session.block_id
+      ? supabase.from('blocks').select('display_config').eq('id', session.block_id).single()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const displayConfig = (block?.display_config as BlockDisplayConfig | null) ?? null
 
   return (
     <div className="space-y-5">
@@ -44,6 +48,7 @@ export default async function AthleteSeancePage({
       <SaisieSeanceClient
         session={session}
         initialSets={sets ?? []}
+        displayConfig={displayConfig}
       />
     </div>
   )

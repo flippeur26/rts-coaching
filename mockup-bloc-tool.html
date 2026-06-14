@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup - Outil Création de Bloc</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; font-size: 12px; }
+
+  /* ─── SECTION LABELS ─── */
+  .section-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    color: #64748b; padding: 6px 12px; background: #1a1f2e;
+    border-left: 3px solid #3b82f6;
+  }
+
+  /* ─── TOP: FILTRES GRAPHIQUES ─── */
+  .filters-bar {
+    background: #151823; border-bottom: 1px solid #2d3348; padding: 10px 12px;
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  }
+  .filter-group { display: flex; align-items: center; gap: 6px; }
+  .filter-title { font-size: 10px; color: #64748b; text-transform: uppercase; margin-right: 4px; }
+  .chip {
+    padding: 3px 10px; border-radius: 12px; font-size: 10px; cursor: pointer;
+    border: 1px solid; display: flex; align-items: center; gap: 4px;
+  }
+  .chip.active { opacity: 1; }
+  .chip.inactive { opacity: 0.35; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .chip-prescrit  { border-color: #3b82f6; color: #3b82f6; }
+  .chip-reel      { border-color: #f59e0b; color: #f59e0b; }
+  .chip-genou     { border-color: #10b981; color: #10b981; }
+  .chip-hanche    { border-color: #8b5cf6; color: #8b5cf6; }
+  .chip-push-h    { border-color: #ef4444; color: #ef4444; }
+  .chip-push-v    { border-color: #f97316; color: #f97316; }
+  .chip-pull-h    { border-color: #06b6d4; color: #06b6d4; }
+  .chip-pull-v    { border-color: #ec4899; color: #ec4899; }
+
+  .separator { width: 1px; height: 20px; background: #2d3348; }
+
+  /* ─── GRAPHS ZONE ─── */
+  .graphs-zone {
+    background: #12161f; padding: 12px;
+    border-bottom: 1px solid #2d3348;
+  }
+  .graph-container {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; height: 110px;
+  }
+  .graph-day {
+    background: #1a1f2e; border-radius: 6px; padding: 4px 6px;
+    display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden;
+  }
+  .graph-day-label { font-size: 9px; color: #64748b; text-align: center; }
+  .graph-bars { display: flex; align-items: flex-end; gap: 2px; height: 72px; }
+  .bar {
+    flex: 1; border-radius: 2px 2px 0 0; opacity: 0.85;
+    transition: opacity .2s;
+  }
+  .bar:hover { opacity: 1; }
+  .bar-prescrit { background: #3b82f6; }
+  .bar-reel     { background: #f59e0b; }
+
+  /* traceur semaine complète */
+  .week-tracer {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+    margin-top: 6px;
+  }
+  .tracer-day {
+    height: 6px; border-radius: 3px; background: #1a1f2e; overflow: hidden;
+    display: flex;
+  }
+  .tracer-segment { height: 100%; }
+
+  /* ─── PROGRAMME : jours côte à côte ─── */
+  .week-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 1px; background: #0a0d14; min-height: 280px;
+  }
+  .day-col {
+    background: #12161f; padding: 8px 6px;
+  }
+  .day-header {
+    font-size: 11px; font-weight: 700; text-align: center;
+    padding: 4px 0 8px; color: #94a3b8; text-transform: uppercase;
+    border-bottom: 1px solid #1e2535; margin-bottom: 6px;
+  }
+  .day-header.today { color: #3b82f6; border-color: #3b82f6; }
+
+  /* Exercice block dans un jour */
+  .exo-block { margin-bottom: 10px; }
+  .exo-name {
+    font-size: 10px; font-weight: 600; color: #cbd5e1;
+    margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .exo-tag {
+    display: inline-block; font-size: 8px; padding: 1px 5px; border-radius: 10px;
+    margin-left: 4px; vertical-align: middle;
+  }
+  .tag-genou  { background: #10b98122; color: #10b981; }
+  .tag-push-h { background: #ef444422; color: #ef4444; }
+  .tag-pull-v { background: #ec489922; color: #ec4899; }
+  .tag-hanche { background: #8b5cf622; color: #8b5cf6; }
+
+  /* ligne de série */
+  .serie-row {
+    display: flex; align-items: center; gap: 3px;
+    padding: 3px 4px; border-radius: 4px; margin-bottom: 2px;
+    background: #1a1f2e;
+    position: relative;
+  }
+  .serie-num { font-size: 9px; color: #475569; width: 12px; flex-shrink: 0; }
+
+  .prescrit-block, .reel-block {
+    display: flex; gap: 2px; align-items: center; flex: 1;
+  }
+  .prescrit-block { border-right: 1px solid #2d3348; padding-right: 3px; margin-right: 2px; }
+
+  .val-field {
+    background: #0f1117; border: 1px solid #2d3348; border-radius: 3px;
+    padding: 2px 3px; font-size: 9px; text-align: center;
+    width: 28px; color: #e2e8f0;
+  }
+  .val-field.prescrit { border-color: #3b82f644; color: #93c5fd; }
+  .val-field.reel     { border-color: #f59e0b44; color: #fcd34d; }
+  .val-label { font-size: 7px; color: #475569; }
+
+  .vs-label { font-size: 8px; color: #334155; flex-shrink: 0; }
+
+  .btn-options {
+    width: 16px; height: 16px; border-radius: 3px; background: #1e2535;
+    border: 1px solid #2d3348; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
+    color: #475569; font-size: 10px;
+  }
+  .btn-options:hover { background: #2d3348; color: #94a3b8; }
+
+  /* ─── PROGRESSION PANEL ─── */
+  .prog-section { background: #0f1117; padding: 12px; }
+  .prog-grid { display: flex; flex-direction: column; gap: 2px; }
+  .prog-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 4px; align-items: center;
+    padding: 5px 8px; background: #12161f; border-radius: 5px;
+  }
+  .prog-row.header { background: transparent; }
+  .prog-exo-name { font-size: 10px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prog-day-cell { text-align: center; }
+  .prog-vals {
+    display: flex; flex-direction: column; gap: 1px;
+  }
+  .prog-vals .p-line { font-size: 9px; color: #93c5fd; }
+  .prog-vals .r-line { font-size: 9px; color: #fcd34d; }
+  .prog-col-head { font-size: 8px; text-align: center; color: #475569; text-transform: uppercase; }
+
+  /* ─── POPUP OPTIONS ─── */
+  .popup-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: #00000088; display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .popup-box {
+    background: #1a1f2e; border: 1px solid #2d3348; border-radius: 10px;
+    padding: 16px; width: 260px;
+  }
+  .popup-title { font-size: 12px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px; }
+  .popup-section { margin-bottom: 10px; }
+  .popup-section-label { font-size: 9px; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  .popup-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .popup-row label { font-size: 10px; color: #94a3b8; flex: 1; }
+  .popup-row input {
+    width: 50px; background: #0f1117; border: 1px solid #2d3348;
+    border-radius: 4px; padding: 3px 6px; color: #e2e8f0; font-size: 10px; text-align: center;
+  }
+  .popup-row select {
+    background: #0f1117; border: 1px solid #2d3348; border-radius: 4px;
+    padding: 2px 4px; color: #e2e8f0; font-size: 10px;
+  }
+  .popup-copy-btn {
+    width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #2d3348;
+    background: #0f1117; color: #94a3b8; font-size: 10px; cursor: pointer;
+    margin-top: 4px; text-align: left;
+  }
+  .popup-copy-btn:hover { background: #1e2535; }
+  .popup-footer { display: flex; gap: 6px; margin-top: 12px; }
+  .btn-cancel { flex: 1; padding: 6px; border-radius: 6px; border: 1px solid #2d3348; background: transparent; color: #64748b; font-size: 10px; cursor: pointer; }
+  .btn-save { flex: 1; padding: 6px; border-radius: 6px; border: none; background: #3b82f6; color: white; font-size: 10px; cursor: pointer; }
+
+  /* Legend bar */
+  .legend-bar {
+    display: flex; gap: 12px; align-items: center;
+    padding: 5px 12px; background: #1a1f2e; font-size: 9px; color: #64748b;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-line { width: 20px; height: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 1 : FILTRES GRAPHIQUES
+══════════════════════════════════════════════ -->
+<div class="section-label">Affichage graphiques — traceurs &amp; types de stress</div>
+<div class="filters-bar">
+  <div class="filter-group">
+    <span class="filter-title">Données</span>
+    <div class="chip chip-prescrit active"><span class="dot" style="background:#3b82f6"></span> Prescrit</div>
+    <div class="chip chip-reel active"><span class="dot" style="background:#f59e0b"></span> Réel</div>
+  </div>
+  <div class="separator"></div>
+  <div class="filter-group">
+    <span class="filter-title">Patterns</span>
+    <div class="chip chip-genou active"><span class="dot" style="background:#10b981"></span> Genou</div>
+    <div class="chip chip-hanche active"><span class="dot" style="background:#8b5cf6"></span> Hanche</div>
+    <div class="chip chip-push-h inactive"><span class="dot" style="background:#ef4444"></span> Push H.</div>
+    <div class="chip chip-push-v inactive"><span class="dot" style="background:#f97316"></span> Push V.</div>
+    <div class="chip chip-pull-h active"><span class="dot" style="background:#06b6d4"></span> Pull H.</div>
+    <div class="chip chip-pull-v inactive"><span class="dot" style="background:#ec4899"></span> Pull V.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 2 : GRAPHIQUES
+══════════════════════════════════════════════ -->
+<div class="graphs-zone">
+  <div class="legend-bar">
+    <div class="legend-item"><div class="legend-line" style="background:#3b82f6"></div> Prescrit (charge)</div>
+    <div class="legend-item"><div class="legend-line" style="background:#f59e0b"></div> Réel (charge)</div>
+    <div class="legend-item"><div class="legend-line" style="background:#10b981"></div> Genou</div>
+    <div class="legend-item"><div class="legend-line" style="background:#8b5cf6"></div> Hanche</div>
+    <div class="legend-item"><div class="legend-line" style="background:#06b6d4"></div> Pull H.</div>
+  </div>
+  <div class="graph-container" style="margin-top:8px">
+    <!-- Lun -->
+    <div class="graph-day">
+      <div class="graph-bars">
+        <div class="bar bar-prescrit" style="height:70%"></div>
+        <div class="bar bar-reel"     style="height:60%"></div>
+        <div class="bar" style="height:50%;background:#10b981"></div>
+        <div class="bar" style="height:35%;background:#8b5cf6"></div>
+        <div class="bar" style="height:40%;background:#06b6d4"></div>
+      </div>
+      <div class="graph-day-label">Lun</div>
+    </div>
+    <!-- Mar -->
+    <div class="graph-day">
+      <div class="graph-bars">
+        <div class="bar bar-prescrit" style="height:45%"></div>
+        <div class="bar bar-reel"     style="height:50%"></div>
+        <div class="bar" style="height:20%;background:#10b981"></div>
+        <div class="bar" style="height:55%;background:#8b5cf6"></div>
+        <div class="bar" style="height:0%;background:#06b6d4"></div>
+      </div>
+      <div class="graph-day-label">Mar</div>
+    </div>
+    <!-- Mer -->
+    <div class="graph-day">
+      <div class="graph-bars">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#2d3348;font-size:18px">—</div>
+      </div>
+      <div class="graph-day-label">Mer</div>
+    </div>
+    <!-- Jeu -->
+    <div class="graph-day">
+      <div class="graph-bars">
+        <div class="bar bar-prescrit" style="height:85%"></div>
+        <div class="bar bar-reel"     style="height:80%"></div>
+        <div class="bar" style="height:60%;background:#10b981"></div>
+        <div class="bar" style="height:40%;background:#8b5cf6"></div>
+        <div class="bar" style="height:65%;background:#06b6d4"></div>
+      </div>
+      <div class="graph-day-label">Jeu</div>
+    </div>
+    <!-- Ven -->
+    <div class="graph-day">
+      <div class="graph-bars">
+        <div class="bar bar-prescrit" style="height:55%"></div>
+        <div class="bar bar-reel"     style="height:45%"></div>
+        <div class="bar" style="height:30%;background:#10b981"></div>
+        <div class="bar" style="height:30%;background:#8b5cf6"></div>
+        <div class="bar" style="height:20%;background:#06b6d4"></div>
+      </div>
+      <div class="graph-day-label">Ven</div>
+    </div>
+    <!-- Sam -->
+    <div class="graph-day">
+      <div class="graph-bars">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#2d3348;font-size:18px">—</div>
+      </div>
+      <div class="graph-day-label">Sam</div>
+    </div>
+    <!-- Dim -->
+    <div class="graph-day">
+      <div class="graph-bars">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#2d3348;font-size:18px">—</div>
+      </div>
+      <div class="graph-day-label">Dim</div>
+    </div>
+  </div>
+  <!-- Traceur semaine entière (barre continue) -->
+  <div class="week-tracer" style="margin-top:8px">
+    <div class="tracer-day"><div class="tracer-segment" style="width:100%;background:#10b981aa"></div></div>
+    <div class="tracer-day"><div class="tracer-segment" style="width:60%;background:#8b5cf6aa"></div></div>
+    <div class="tracer-day"></div>
+    <div class="tracer-day"><div class="tracer-segment" style="width:100%;background:#10b981aa"></div></div>
+    <div class="tracer-day"><div class="tracer-segment" style="width:40%;background:#06b6d4aa"></div></div>
+    <div class="tracer-day"></div>
+    <div class="tracer-day"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 3 : PROGRAMME SEMAINE (grille jours)
+══════════════════════════════════════════════ -->
+<div class="section-label">Programme — Semaine 3</div>
+<div class="week-grid">
+
+  <!-- LUNDI -->
+  <div class="day-col">
+    <div class="day-header today">Lun 10</div>
+    <!-- Exo 1 -->
+    <div class="exo-block">
+      <div class="exo-name">Squat <span class="exo-tag tag-genou">Genou</span></div>
+      <!-- colonnes mini -->
+      <div style="display:flex;gap:2px;margin-bottom:3px;padding:0 4px">
+        <div style="flex:1;font-size:7px;color:#3b82f6;text-align:center">ch</div>
+        <div style="flex:1;font-size:7px;color:#3b82f6;text-align:center">rep</div>
+        <div style="flex:1;font-size:7px;color:#3b82f6;text-align:center">RPE</div>
+        <div style="font-size:7px;color:#334155;width:10px;text-align:center">|</div>
+        <div style="flex:1;font-size:7px;color:#f59e0b;text-align:center">ch</div>
+        <div style="flex:1;font-size:7px;color:#f59e0b;text-align:center">rep</div>
+        <div style="flex:1;font-size:7px;color:#f59e0b;text-align:center">RPE</div>
+        <div style="width:18px"></div>
+      </div>
+      <div class="serie-row">
+        <div class="serie-num">S1</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="100" readonly>
+          <input class="val-field prescrit" value="5" readonly>
+          <input class="val-field prescrit" value="7" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="102" readonly>
+          <input class="val-field reel" value="5" readonly>
+          <input class="val-field reel" value="7.5" readonly>
+        </div>
+        <div class="btn-options" title="Options / Progression N+1">⋯</div>
+      </div>
+      <div class="serie-row">
+        <div class="serie-num">S2</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="100" readonly>
+          <input class="val-field prescrit" value="5" readonly>
+          <input class="val-field prescrit" value="7" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="100" readonly>
+          <input class="val-field reel" value="5" readonly>
+          <input class="val-field reel" value="8" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+      <div class="serie-row">
+        <div class="serie-num">S3</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="100" readonly>
+          <input class="val-field prescrit" value="5" readonly>
+          <input class="val-field prescrit" value="8" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="98" readonly>
+          <input class="val-field reel" value="4" readonly>
+          <input class="val-field reel" value="9" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+    </div>
+    <!-- Exo 2 -->
+    <div class="exo-block">
+      <div class="exo-name">Leg Press <span class="exo-tag tag-genou">Genou</span></div>
+      <div class="serie-row">
+        <div class="serie-num">S1</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="200" readonly>
+          <input class="val-field prescrit" value="10" readonly>
+          <input class="val-field prescrit" value="7" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="200" readonly>
+          <input class="val-field reel" value="10" readonly>
+          <input class="val-field reel" value="7" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARDI -->
+  <div class="day-col">
+    <div class="day-header">Mar 11</div>
+    <div class="exo-block">
+      <div class="exo-name">Pull-up <span class="exo-tag tag-pull-v">Pull V.</span></div>
+      <div class="serie-row">
+        <div class="serie-num">S1</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="BW" readonly>
+          <input class="val-field prescrit" value="8" readonly>
+          <input class="val-field prescrit" value="7" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="BW" readonly>
+          <input class="val-field reel" value="9" readonly>
+          <input class="val-field reel" value="6" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+      <div class="serie-row">
+        <div class="serie-num">S2</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="BW" readonly>
+          <input class="val-field prescrit" value="8" readonly>
+          <input class="val-field prescrit" value="8" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="BW" readonly>
+          <input class="val-field reel" value="7" readonly>
+          <input class="val-field reel" value="8" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+    </div>
+    <div class="exo-block">
+      <div class="exo-name">Row Barre <span class="exo-tag" style="background:#06b6d422;color:#06b6d4">Pull H.</span></div>
+      <div class="serie-row">
+        <div class="serie-num">S1</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="70" readonly>
+          <input class="val-field prescrit" value="8" readonly>
+          <input class="val-field prescrit" value="7" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="72" readonly>
+          <input class="val-field reel" value="8" readonly>
+          <input class="val-field reel" value="7" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MERCREDI -->
+  <div class="day-col" style="display:flex;align-items:center;justify-content:center;">
+    <div style="color:#2d3348;font-size:10px;text-align:center">
+      <div style="font-size:18px;margin-bottom:4px">休</div>
+      Repos
+    </div>
+  </div>
+
+  <!-- JEUDI -->
+  <div class="day-col">
+    <div class="day-header">Jeu 13</div>
+    <div class="exo-block">
+      <div class="exo-name">Deadlift <span class="exo-tag tag-hanche">Hanche</span></div>
+      <div class="serie-row">
+        <div class="serie-num">S1</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="150" readonly>
+          <input class="val-field prescrit" value="4" readonly>
+          <input class="val-field prescrit" value="8" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="152" readonly>
+          <input class="val-field reel" value="4" readonly>
+          <input class="val-field reel" value="8" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+      <div class="serie-row">
+        <div class="serie-num">S2</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="150" readonly>
+          <input class="val-field prescrit" value="4" readonly>
+          <input class="val-field prescrit" value="8" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="150" readonly>
+          <input class="val-field reel" value="5" readonly>
+          <input class="val-field reel" value="7.5" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+    </div>
+    <div class="exo-block">
+      <div class="exo-name">Bench Press <span class="exo-tag tag-push-h">Push H.</span></div>
+      <div class="serie-row">
+        <div class="serie-num">S1</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="90" readonly>
+          <input class="val-field prescrit" value="5" readonly>
+          <input class="val-field prescrit" value="7" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="90" readonly>
+          <input class="val-field reel" value="5" readonly>
+          <input class="val-field reel" value="7" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VENDREDI -->
+  <div class="day-col">
+    <div class="day-header">Ven 14</div>
+    <div class="exo-block">
+      <div class="exo-name">OHP <span class="exo-tag" style="background:#f9731622;color:#f97316">Push V.</span></div>
+      <div class="serie-row">
+        <div class="serie-num">S1</div>
+        <div class="prescrit-block">
+          <input class="val-field prescrit" value="60" readonly>
+          <input class="val-field prescrit" value="6" readonly>
+          <input class="val-field prescrit" value="7" readonly>
+        </div>
+        <span class="vs-label">vs</span>
+        <div class="reel-block">
+          <input class="val-field reel" value="60" readonly>
+          <input class="val-field reel" value="6" readonly>
+          <input class="val-field reel" value="7" readonly>
+        </div>
+        <div class="btn-options">⋯</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAMEDI -->
+  <div class="day-col" style="display:flex;align-items:center;justify-content:center;">
+    <div style="color:#2d3348;font-size:10px;text-align:center">
+      <div style="font-size:18px;margin-bottom:4px">休</div>
+      Repos
+    </div>
+  </div>
+
+  <!-- DIMANCHE -->
+  <div class="day-col" style="display:flex;align-items:center;justify-content:center;">
+    <div style="color:#2d3348;font-size:10px;text-align:center">
+      <div style="font-size:18px;margin-bottom:4px">休</div>
+      Repos
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 4 : PROGRESSION (tous exos, vue verticale)
+══════════════════════════════════════════════ -->
+<div class="section-label">Progression semaine — tous exercices</div>
+<div class="prog-section">
+  <div class="prog-grid">
+    <!-- Header -->
+    <div class="prog-row header">
+      <div></div>
+      <div class="prog-col-head">Lun</div>
+      <div class="prog-col-head">Mar</div>
+      <div class="prog-col-head">Mer</div>
+      <div class="prog-col-head">Jeu</div>
+      <div class="prog-col-head">Ven</div>
+      <div class="prog-col-head">Sam</div>
+      <div class="prog-col-head">Dim</div>
+    </div>
+    <!-- Squat -->
+    <div class="prog-row">
+      <div class="prog-exo-name">Squat</div>
+      <div class="prog-day-cell prog-vals">
+        <div class="p-line">100×5 @7</div>
+        <div class="r-line">102×5 @7.5</div>
+      </div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+    </div>
+    <!-- Leg Press -->
+    <div class="prog-row">
+      <div class="prog-exo-name">Leg Press</div>
+      <div class="prog-day-cell prog-vals">
+        <div class="p-line">200×10 @7</div>
+        <div class="r-line">200×10 @7</div>
+      </div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+    </div>
+    <!-- Pull-up -->
+    <div class="prog-row">
+      <div class="prog-exo-name">Pull-up</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell prog-vals">
+        <div class="p-line">BW×8 @7</div>
+        <div class="r-line">BW×9 @6</div>
+      </div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+    </div>
+    <!-- Row Barre -->
+    <div class="prog-row">
+      <div class="prog-exo-name">Row Barre</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell prog-vals">
+        <div class="p-line">70×8 @7</div>
+        <div class="r-line">72×8 @7</div>
+      </div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+    </div>
+    <!-- Deadlift -->
+    <div class="prog-row">
+      <div class="prog-exo-name">Deadlift</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell prog-vals">
+        <div class="p-line">150×4 @8</div>
+        <div class="r-line">152×4 @8</div>
+      </div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+    </div>
+    <!-- Bench -->
+    <div class="prog-row">
+      <div class="prog-exo-name">Bench Press</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell prog-vals">
+        <div class="p-line">90×5 @7</div>
+        <div class="r-line">90×5 @7</div>
+      </div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+    </div>
+    <!-- OHP -->
+    <div class="prog-row">
+      <div class="prog-exo-name">OHP</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell prog-vals">
+        <div class="p-line">60×6 @7</div>
+        <div class="r-line">60×6 @7</div>
+      </div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+      <div class="prog-day-cell" style="color:#2d3348;font-size:9px">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     POPUP OPTIONS (toujours visible pour le mockup)
+══════════════════════════════════════════════ -->
+<div class="popup-overlay">
+  <div class="popup-box">
+    <div class="popup-title">Options — Squat S1 · Progression N+1</div>
+
+    <div class="popup-section">
+      <div class="popup-section-label">Critères de progression (S→N+1)</div>
+      <div class="popup-row">
+        <label>Charge</label>
+        <input value="+2.5" placeholder="kg ou %">
+        <select><option>kg</option><option>%</option></select>
+      </div>
+      <div class="popup-row">
+        <label>Répétitions</label>
+        <input value="+0" placeholder="reps">
+        <select><option>reps</option></select>
+      </div>
+      <div class="popup-row">
+        <label>Séries</label>
+        <input value="+0" placeholder="séries">
+        <select><option>séries</option></select>
+      </div>
+      <div class="popup-row">
+        <label>ROM</label>
+        <input value="=" placeholder="+/-">
+        <select><option>maintenu</option><option>+</option><option>−</option></select>
+      </div>
+      <div class="popup-row">
+        <label>RPE cible</label>
+        <input value="7" placeholder="RPE">
+        <select><option>fixe</option><option>range</option></select>
+      </div>
+    </div>
+
+    <div class="popup-section">
+      <div class="popup-section-label">Copier vers séries suivantes</div>
+      <button class="popup-copy-btn">📋 Copier sur S2, S3, S4... (avec écrasement)</button>
+      <button class="popup-copy-btn">📋 Copier sur S2, S3, S4... (sans écrasement)</button>
+    </div>
+
+    <div class="popup-footer">
+      <button class="btn-cancel">Annuler</button>
+      <button class="btn-save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

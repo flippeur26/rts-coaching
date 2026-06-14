@@ -29,7 +29,6 @@
   .chip.off { opacity: 0.3; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   .sep { width: 1px; height: 20px; background: #2d3348; }
-
   .c-p   { border-color:#3b82f6; color:#3b82f6; }
   .c-r   { border-color:#f59e0b; color:#f59e0b; }
   .c-gn  { border-color:#10b981; color:#10b981; }
@@ -39,144 +38,124 @@
   .c-plh { border-color:#06b6d4; color:#06b6d4; }
   .c-plv { border-color:#ec4899; color:#ec4899; }
 
-  /* ─── ZONE COMMUNE graphique + programme ─── */
-  /* Tout est enveloppé dans un conteneur qui impose 7 colonnes égales.
-     Le graphique SVG et le programme partagent exactement le même grid,
-     garantissant l'alignement pixel parfait des jours. */
-
-  .week-wrapper {
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* La grille 7 colonnes est réutilisée pour le graph ET le programme */
-  .grid7 {
+  /* ════════════════════════════════════════════════════════════
+     GRILLE PRINCIPALE UNIQUE
+     gap: 0 obligatoire pour que le SVG soit aligné avec les colonnes
+     Les séparations visuelles sont faites avec border, pas gap.
+  ════════════════════════════════════════════════════════════ */
+  .main-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-  }
-
-  /* ─── GRAPHIQUE ─── */
-  .graph-section {
-    background: #12161f;
-    border-bottom: 1px solid #2d3348;
-    padding: 8px 0 0;
-  }
-
-  /* Le SVG prend toute la largeur, les points sont aux centres des colonnes */
-  .graph-svg-wrap {
-    width: 100%;
-    position: relative;
-  }
-  .graph-svg-wrap svg {
-    width: 100%;
-    height: 140px;
-    display: block;
-  }
-
-  /* Étiquettes des jours sous le SVG, alignées avec le grid7 */
-  .graph-day-labels {
-    padding: 4px 0;
-  }
-  .graph-day-labels .day-lbl {
-    font-size: 9px; color: #475569; text-align: center;
-    padding: 2px 0;
-  }
-  .graph-day-labels .day-lbl.today { color: #3b82f6; font-weight: 700; }
-
-  /* Légende */
-  .graph-legend {
-    display: flex; gap: 14px; padding: 6px 12px;
-    font-size: 9px; color: #64748b; flex-wrap: wrap;
-  }
-  .graph-legend span { display: flex; align-items: center; gap: 5px; }
-  .graph-legend .ln { width: 18px; height: 2px; border-radius: 1px; }
-  .graph-legend .pt { width: 7px; height: 7px; border-radius: 50%; }
-
-  /* ─── PROGRAMME ─── */
-  .prog-section {
+    gap: 0;
     background: #0a0d14;
   }
 
+  /* La légende et le SVG s'étalent sur toute la largeur (7 colonnes) */
+  .graph-legend {
+    grid-column: 1 / -1;
+    display: flex; gap: 14px; padding: 6px 10px;
+    font-size: 9px; color: #64748b; flex-wrap: wrap;
+    background: #12161f; border-bottom: 1px solid #1a1f2e;
+  }
+  .graph-legend span { display: flex; align-items: center; gap: 5px; }
+  .ln { width: 18px; height: 2px; border-radius: 1px; display:inline-block; }
+  .pt { width: 7px; height: 7px; border-radius: 50%; display:inline-block; }
+
+  .graph-svg-row {
+    grid-column: 1 / -1;
+    background: #12161f;
+    position: relative;
+  }
+  .graph-svg-row svg {
+    display: block;
+    width: 100%;
+    height: 140px;
+    /* preserveAspectRatio none : le SVG s'étire exactement à la largeur du conteneur.
+       Les 7 colonnes SVG (100px chacune dans un viewBox 700px) correspondent
+       donc pixel pour pixel aux 7 colonnes CSS du main-grid. */
+  }
+
+  /* En-têtes des jours — dans le main-grid, donc alignés automatiquement */
+  .day-header {
+    font-size: 10px; font-weight: 700; text-align: center;
+    padding: 5px 2px; color: #64748b; text-transform: uppercase;
+    background: #151823;
+    border-right: 1px solid #0a0d14;
+    border-bottom: 1px solid #1e2535;
+  }
+  .day-header.today { color: #3b82f6; }
+  .day-header:last-child { border-right: none; }
+
+  /* Colonnes jour — dans le main-grid */
   .day-col {
     background: #12161f;
+    padding: 8px 5px;
     border-right: 1px solid #0a0d14;
-    padding: 8px 6px;
-    min-height: 260px;
+    vertical-align: top;
+    min-height: 200px;
   }
   .day-col:last-child { border-right: none; }
-
-  .day-header {
-    font-size: 11px; font-weight: 700; text-align: center;
-    padding: 4px 0 8px; color: #94a3b8; text-transform: uppercase;
-    border-bottom: 1px solid #1e2535; margin-bottom: 6px;
+  .day-col.rest {
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 4px;
+    color: #2d3348; font-size: 10px; text-align: center;
   }
-  .day-header.today { color: #3b82f6; border-color: #3b82f6; }
+  .day-col.rest span { font-size: 18px; }
 
+  /* ─── Exercices ─── */
   .exo-block { margin-bottom: 10px; }
   .exo-name {
-    font-size: 10px; font-weight: 600; color: #cbd5e1;
-    margin-bottom: 4px;
+    font-size: 10px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .exo-tag {
-    display: inline-block; font-size: 8px; padding: 1px 5px;
-    border-radius: 10px; margin-left: 3px; vertical-align: middle;
+    display: inline-block; font-size: 7px; padding: 1px 4px;
+    border-radius: 8px; margin-left: 3px; vertical-align: middle;
   }
-
   .col-heads {
-    display: flex; gap: 2px; margin-bottom: 3px; padding: 0 2px;
+    display: flex; gap: 2px; margin-bottom: 2px;
   }
   .col-heads .ch { flex:1; font-size:7px; text-align:center; }
-  .col-heads .vs-ph { width:14px; }
+  .col-heads .vs-ph { width:12px; }
   .col-heads .opt-ph { width:18px; }
-
   .serie-row {
     display: flex; align-items: center; gap: 2px;
     padding: 3px 2px; border-radius: 4px; margin-bottom: 2px;
     background: #1a1f2e;
   }
-  .snum { font-size: 9px; color: #475569; width: 14px; flex-shrink: 0; text-align:center; }
+  .snum { font-size: 9px; color: #475569; width: 13px; flex-shrink:0; text-align:center; }
   .bloc { display: flex; gap: 2px; align-items: center; flex: 1; }
   .bloc.pre { border-right: 1px solid #2d3348; padding-right: 2px; }
   .fld {
     background: #0f1117; border: 1px solid #2d3348; border-radius: 3px;
-    padding: 2px 2px; font-size: 9px; text-align: center;
-    width: 26px; color: #e2e8f0;
+    padding: 2px 1px; font-size: 8px; text-align: center; width: 24px; color: #e2e8f0;
   }
   .fld.p { border-color:#3b82f644; color:#93c5fd; }
   .fld.r { border-color:#f59e0b44; color:#fcd34d; }
-  .vs  { font-size: 8px; color: #334155; flex-shrink:0; width:14px; text-align:center; }
+  .vs { font-size: 7px; color: #334155; flex-shrink:0; width:12px; text-align:center; }
   .btn-opt {
-    width: 18px; height: 18px; border-radius: 3px; background: #1e2535;
+    width: 16px; height: 16px; border-radius: 3px; background: #1e2535;
     border: 1px solid #2d3348; cursor: pointer; display: flex;
-    align-items: center; justify-content: center; flex-shrink: 0;
-    color: #475569; font-size: 11px;
+    align-items: center; justify-content: center; flex-shrink:0;
+    color: #475569; font-size: 10px;
   }
-  .btn-opt:hover { background: #2d3348; color: #94a3b8; }
-
-  .rest-col {
-    display: flex; align-items: center; justify-content: center;
-    color: #2d3348; font-size: 10px; text-align: center;
-    flex-direction: column; gap: 4px;
-  }
-  .rest-col span { font-size: 20px; }
 
   /* ─── PROGRESSION CONSOLIDÉE ─── */
   .consol-section { background: #0f1117; padding: 10px; }
   .consol-grid { display: flex; flex-direction: column; gap: 2px; }
   .consol-row {
     display: grid;
-    grid-template-columns: 130px repeat(7, 1fr);
+    grid-template-columns: 120px repeat(7, 1fr);
     gap: 3px; align-items: center;
     padding: 4px 6px; background: #12161f; border-radius: 5px;
   }
   .consol-row.hdr { background: transparent; }
-  .c-exo { font-size: 10px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .c-exo { font-size: 10px; color: #94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .c-hdr { font-size: 8px; text-align: center; color: #475569; text-transform: uppercase; }
   .c-cell { text-align: center; }
   .cv-p { font-size: 9px; color: #93c5fd; }
   .cv-r { font-size: 9px; color: #fcd34d; }
-  .c-empty { font-size: 9px; color: #1e2535; text-align: center; }
+  .c-mt { font-size: 9px; color: #1e2535; text-align:center; }
 
   /* ─── POPUP ─── */
   .popup-overlay {
@@ -185,7 +164,7 @@
   }
   .popup-box {
     background: #1a1f2e; border: 1px solid #2d3348; border-radius: 10px;
-    padding: 16px; width: 260px;
+    padding: 16px; width: 255px;
   }
   .pop-title { font-size: 12px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px; }
   .pop-sec { margin-bottom: 10px; }
@@ -193,8 +172,8 @@
   .pop-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
   .pop-row label { font-size: 10px; color: #94a3b8; flex: 1; }
   .pop-row input {
-    width: 50px; background: #0f1117; border: 1px solid #2d3348;
-    border-radius: 4px; padding: 3px 6px; color: #e2e8f0; font-size: 10px; text-align: center;
+    width: 48px; background: #0f1117; border: 1px solid #2d3348;
+    border-radius: 4px; padding: 3px 5px; color: #e2e8f0; font-size: 10px; text-align: center;
   }
   .pop-row select {
     background: #0f1117; border: 1px solid #2d3348; border-radius: 4px;
@@ -205,21 +184,20 @@
     background: #0f1117; color: #94a3b8; font-size: 10px; cursor: pointer;
     margin-top: 4px; text-align: left;
   }
-  .pop-copy:hover { background: #1e2535; }
   .pop-footer { display: flex; gap: 6px; margin-top: 12px; }
   .btn-cancel {
-    flex: 1; padding: 6px; border-radius: 6px; border: 1px solid #2d3348;
+    flex:1; padding: 6px; border-radius: 6px; border: 1px solid #2d3348;
     background: transparent; color: #64748b; font-size: 10px; cursor: pointer;
   }
   .btn-save {
-    flex: 1; padding: 6px; border-radius: 6px; border: none;
+    flex:1; padding: 6px; border-radius: 6px; border: none;
     background: #3b82f6; color: white; font-size: 10px; cursor: pointer;
   }
 </style>
 </head>
 <body>
 
-<!-- ══ FILTRES ══════════════════════════════════════════════════════ -->
+<!-- ══ FILTRES ════════════════════════════════════════════════════ -->
 <div class="section-label">Affichage graphiques — traceurs &amp; types de stress</div>
 <div class="filters-bar">
   <div class="filter-group">
@@ -239,255 +217,253 @@
   </div>
 </div>
 
-<!-- ══ GRAPHIQUE + PROGRAMME (même conteneur, même largeur) ═════════ -->
-<div class="week-wrapper">
+<!-- ══ GRILLE UNIQUE : graphique + programme ══════════════════════
+     TOUT est dans ce même grid7.
+     Le SVG (grid-column: 1/-1) partage exactement la même largeur
+     que les 7 colonnes jours en dessous → alignement garanti.
+══════════════════════════════════════════════════════════════════ -->
+<div class="main-grid">
 
-  <!-- GRAPHIQUE -->
-  <div class="graph-section">
-    <div class="graph-legend">
-      <span><div class="ln" style="background:#3b82f6"></div><div class="pt" style="background:#3b82f6"></div>Prescrit (charge)</span>
-      <span><div class="ln" style="background:#f59e0b"></div><div class="pt" style="background:#f59e0b"></div>Réel (charge)</span>
-      <span><div class="ln" style="background:#10b981"></div><div class="pt" style="background:#10b981"></div>Genou</span>
-      <span><div class="ln" style="background:#8b5cf6"></div><div class="pt" style="background:#8b5cf6"></div>Hanche</span>
-      <span><div class="ln" style="background:#06b6d4"></div><div class="pt" style="background:#06b6d4"></div>Pull H.</span>
+  <!-- Légende (span 7) -->
+  <div class="graph-legend">
+    <span><div class="ln" style="background:#3b82f6"></div><div class="pt" style="background:#3b82f6"></div>Prescrit (charge)</span>
+    <span><div class="ln" style="background:#f59e0b"></div><div class="pt" style="background:#f59e0b"></div>Réel (charge)</span>
+    <span><div class="ln" style="background:#10b981"></div><div class="pt" style="background:#10b981"></div>Genou</span>
+    <span><div class="ln" style="background:#8b5cf6"></div><div class="pt" style="background:#8b5cf6"></div>Hanche</span>
+    <span><div class="ln" style="background:#06b6d4"></div><div class="pt" style="background:#06b6d4"></div>Pull H.</span>
+  </div>
+
+  <!-- SVG (span 7) ─────────────────────────────────────────────
+       viewBox = 700 × 130  (7 colonnes × 100px)
+       Centres colonnes SVG : x = 50 150 250 350 450 550 650
+       Ces positions correspondent à (col + 0.5) / 7 de la largeur totale,
+       ce qui est exactement le centre de chaque colonne CSS 1fr.
+  ──────────────────────────────────────────────────────────────── -->
+  <div class="graph-svg-row">
+    <svg viewBox="0 0 700 130" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+
+      <!-- Fond repos (Mer=col2, Sam=col5, Dim=col6) -->
+      <rect x="200" y="0" width="100" height="130" fill="#0a0d14" opacity="0.6"/>
+      <rect x="500" y="0" width="200" height="130" fill="#0a0d14" opacity="0.6"/>
+
+      <!-- Séparateurs verticaux colonnes (aux mêmes positions que les borders CSS) -->
+      <line x1="100" y1="0" x2="100" y2="130" stroke="#1e2535" stroke-width="1"/>
+      <line x1="200" y1="0" x2="200" y2="130" stroke="#1e2535" stroke-width="1"/>
+      <line x1="300" y1="0" x2="300" y2="130" stroke="#1e2535" stroke-width="1"/>
+      <line x1="400" y1="0" x2="400" y2="130" stroke="#1e2535" stroke-width="1"/>
+      <line x1="500" y1="0" x2="500" y2="130" stroke="#1e2535" stroke-width="1"/>
+      <line x1="600" y1="0" x2="600" y2="130" stroke="#1e2535" stroke-width="1"/>
+
+      <!-- Repères horizontaux -->
+      <line x1="0" y1="20"  x2="700" y2="20"  stroke="#1a1f2e" stroke-width="1"/>
+      <line x1="0" y1="55"  x2="700" y2="55"  stroke="#1a1f2e" stroke-width="1"/>
+      <line x1="0" y1="90"  x2="700" y2="90"  stroke="#1a1f2e" stroke-width="1"/>
+      <line x1="0" y1="120" x2="700" y2="120" stroke="#1a1f2e" stroke-width="1"/>
+
+      <!--
+        Données (Y = 120 - valeur*1.1, axe Y : 120=bas, 10=haut)
+        Jours avec séances : Lun(x=50) Mar(x=150) Jeu(x=350) Ven(x=450)
+        Jours repos : Mer(x=250) Sam(x=550) Dim(x=650) — pas de point
+
+        Prescrit charge : Lun=65 Mar=40 Jeu=80 Ven=50
+          Y: Lun=120-65*1.1=48  Mar=120-44=76  Jeu=120-88=32  Ven=120-55=65
+        Réel charge    : Lun=62 Mar=43 Jeu=77 Ven=50
+          Y: Lun=120-68=52  Mar=120-47=73  Jeu=120-85=35  Ven=120-55=65
+        Genou          : Lun=70 Jeu=45
+          Y: Lun=120-77=43  Jeu=120-50=70
+        Hanche         : Mar=55 Jeu=80
+          Y: Mar=120-61=59  Jeu=120-88=32
+        Pull H.        : Mar=50 Ven=35
+          Y: Mar=120-55=65  Ven=120-39=81
+      -->
+
+      <!-- Zone remplie sous Prescrit (optionnel, léger) -->
+      <polygon
+        points="50,48 150,76 350,32 450,65 450,120 350,120 150,120 50,120"
+        fill="#3b82f6" opacity="0.05"/>
+
+      <!-- ── Traceur Prescrit (bleu) ── -->
+      <polyline points="50,48 150,76 350,32 450,65"
+        fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="50"  cy="48" r="4" fill="#3b82f6" stroke="#12161f" stroke-width="1.5"/>
+      <circle cx="150" cy="76" r="4" fill="#3b82f6" stroke="#12161f" stroke-width="1.5"/>
+      <circle cx="350" cy="32" r="4" fill="#3b82f6" stroke="#12161f" stroke-width="1.5"/>
+      <circle cx="450" cy="65" r="4" fill="#3b82f6" stroke="#12161f" stroke-width="1.5"/>
+
+      <!-- ── Traceur Réel (jaune) ── -->
+      <polyline points="50,52 150,73 350,35 450,65"
+        fill="none" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="50"  cy="52" r="4" fill="#f59e0b" stroke="#12161f" stroke-width="1.5"/>
+      <circle cx="150" cy="73" r="4" fill="#f59e0b" stroke="#12161f" stroke-width="1.5"/>
+      <circle cx="350" cy="35" r="4" fill="#f59e0b" stroke="#12161f" stroke-width="1.5"/>
+      <circle cx="450" cy="65" r="4" fill="#f59e0b" stroke="#12161f" stroke-width="1.5"/>
+
+      <!-- ── Traceur Genou (vert) ── -->
+      <polyline points="50,43 350,70"
+        fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="none"/>
+      <circle cx="50"  cy="43" r="4" fill="#10b981" stroke="#12161f" stroke-width="1.5"/>
+      <circle cx="350" cy="70" r="4" fill="#10b981" stroke="#12161f" stroke-width="1.5"/>
+
+      <!-- ── Traceur Hanche (violet) ── -->
+      <polyline points="150,59 350,32"
+        fill="none" stroke="#8b5cf6" stroke-width="2"/>
+      <circle cx="150" cy="59" r="4" fill="#8b5cf6" stroke="#12161f" stroke-width="1.5"/>
+      <circle cx="350" cy="32" r="4" fill="#8b5cf6" stroke="#12161f" stroke-width="1.5"/>
+
+      <!-- ── Traceur Pull H. (cyan) ── -->
+      <polyline points="150,65 450,81"
+        fill="none" stroke="#06b6d4" stroke-width="2"/>
+      <circle cx="150" cy="65" r="4" fill="#06b6d4" stroke="#12161f" stroke-width="1.5"/>
+      <circle cx="450" cy="81" r="4" fill="#06b6d4" stroke="#12161f" stroke-width="1.5"/>
+
+      <!-- Tooltip exemple (Jeu) -->
+      <rect x="358" y="10" width="72" height="38" rx="4" fill="#1e2535" stroke="#2d3348"/>
+      <text x="363" y="22" fill="#94a3b8" font-size="7.5">Deadlift + Bench</text>
+      <text x="363" y="32" fill="#93c5fd" font-size="7.5">P: 150×4 @8</text>
+      <text x="363" y="42" fill="#fcd34d" font-size="7.5">R: 152×4 @8</text>
+
+    </svg>
+  </div>
+
+  <!-- En-têtes jours (directement dans le main-grid = alignés avec SVG) -->
+  <div class="day-header today">Lun 10</div>
+  <div class="day-header">Mar 11</div>
+  <div class="day-header" style="color:#2d3348">Mer 12</div>
+  <div class="day-header">Jeu 13</div>
+  <div class="day-header">Ven 14</div>
+  <div class="day-header" style="color:#2d3348">Sam 15</div>
+  <div class="day-header" style="color:#2d3348">Dim 16</div>
+
+  <!-- ── LUNDI ── -->
+  <div class="day-col">
+    <div class="exo-block">
+      <div class="exo-name">Squat <span class="exo-tag" style="background:#10b98122;color:#10b981">Genou</span></div>
+      <div class="col-heads">
+        <div class="ch" style="color:#3b82f6">ch</div><div class="ch" style="color:#3b82f6">rep</div><div class="ch" style="color:#3b82f6">RPE</div>
+        <div class="vs-ph"></div>
+        <div class="ch" style="color:#f59e0b">ch</div><div class="ch" style="color:#f59e0b">rep</div><div class="ch" style="color:#f59e0b">RPE</div>
+        <div class="opt-ph"></div>
+      </div>
+      <div class="serie-row">
+        <div class="snum">S1</div>
+        <div class="bloc pre"><input class="fld p" value="100" readonly><input class="fld p" value="5" readonly><input class="fld p" value="7" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="102" readonly><input class="fld r" value="5" readonly><input class="fld r" value="7.5" readonly></div>
+        <div class="btn-opt">⋯</div>
+      </div>
+      <div class="serie-row">
+        <div class="snum">S2</div>
+        <div class="bloc pre"><input class="fld p" value="100" readonly><input class="fld p" value="5" readonly><input class="fld p" value="7" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="100" readonly><input class="fld r" value="5" readonly><input class="fld r" value="8" readonly></div>
+        <div class="btn-opt">⋯</div>
+      </div>
+      <div class="serie-row">
+        <div class="snum">S3</div>
+        <div class="bloc pre"><input class="fld p" value="100" readonly><input class="fld p" value="5" readonly><input class="fld p" value="8" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="98" readonly><input class="fld r" value="4" readonly><input class="fld r" value="9" readonly></div>
+        <div class="btn-opt">⋯</div>
+      </div>
     </div>
-
-    <!--
-      SVG : viewBox 700×130, 7 colonnes de 100px chacune.
-      Centres des colonnes : x = 50, 150, 250, 350, 450, 550, 650
-      Jours : Lun=0  Mar=1  Mer=2(repos)  Jeu=3  Ven=4  Sam=5(repos)  Dim=6(repos)
-      Valeurs normalisées sur Y (0=bas=130, max=haut=10)
-    -->
-    <div class="graph-svg-wrap">
-      <svg viewBox="0 0 700 130" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-
-        <!-- Lignes de grille verticales (séparations colonnes) -->
-        <line x1="100" y1="0"  x2="100" y2="130" stroke="#1e2535" stroke-width="1"/>
-        <line x1="200" y1="0"  x2="200" y2="130" stroke="#1e2535" stroke-width="1"/>
-        <line x1="300" y1="0"  x2="300" y2="130" stroke="#1e2535" stroke-width="1"/>
-        <line x1="400" y1="0"  x2="400" y2="130" stroke="#1e2535" stroke-width="1"/>
-        <line x1="500" y1="0"  x2="500" y2="130" stroke="#1e2535" stroke-width="1"/>
-        <line x1="600" y1="0"  x2="600" y2="130" stroke="#1e2535" stroke-width="1"/>
-
-        <!-- Lignes horizontales repères -->
-        <line x1="0" y1="10"  x2="700" y2="10"  stroke="#1a1f2e" stroke-width="1"/>
-        <line x1="0" y1="45"  x2="700" y2="45"  stroke="#1a1f2e" stroke-width="1"/>
-        <line x1="0" y1="80"  x2="700" y2="80"  stroke="#1a1f2e" stroke-width="1"/>
-        <line x1="0" y1="115" x2="700" y2="115" stroke="#1a1f2e" stroke-width="1"/>
-
-        <!-- Zone repos (Mer, Sam, Dim) -->
-        <rect x="200" y="0" width="100" height="130" fill="#0a0d14" opacity="0.5"/>
-        <rect x="500" y="0" width="200" height="130" fill="#0a0d14" opacity="0.5"/>
-
-        <!-- ─── TRACEUR : Prescrit (bleu) ─── -->
-        <!-- Points : Lun=50,Jeu=350,Ven=450 (jours avec séances) -->
-        <!-- Valeurs Y (130=0%, 10=100%) : Lun→65%, Mar→40%, Jeu→80%, Ven→50% -->
-        <!-- Y = 130 - val*1.2  (plage 10..130) -->
-        <!-- Lun: 65 → Y=52  Mar: 40 → Y=82  Jeu: 80 → Y=34  Ven: 50 → Y=70 -->
-        <polyline
-          points="50,52 150,82 350,34 450,70"
-          fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"
-          stroke-dasharray="0"/>
-        <!-- Points ronds -->
-        <circle cx="50"  cy="52" r="4" fill="#3b82f6"/>
-        <circle cx="150" cy="82" r="4" fill="#3b82f6"/>
-        <circle cx="350" cy="34" r="4" fill="#3b82f6"/>
-        <circle cx="450" cy="70" r="4" fill="#3b82f6"/>
-
-        <!-- ─── TRACEUR : Réel (jaune) ─── -->
-        <!-- Lun: 62→Y=55  Mar: 43→Y=78  Jeu: 76→Y=39  Ven: 50→Y=70 -->
-        <polyline
-          points="50,55 150,78 350,39 450,70"
-          fill="none" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round"/>
-        <circle cx="50"  cy="55" r="4" fill="#f59e0b"/>
-        <circle cx="150" cy="78" r="4" fill="#f59e0b"/>
-        <circle cx="350" cy="39" r="4" fill="#f59e0b"/>
-        <circle cx="450" cy="70" r="4" fill="#f59e0b"/>
-
-        <!-- ─── TRACEUR : Genou (vert) ─── -->
-        <!-- Lun: 70→Y=46  Jeu: 45→Y=76 -->
-        <polyline
-          points="50,46 350,76"
-          fill="none" stroke="#10b981" stroke-width="2" stroke-linejoin="round"/>
-        <circle cx="50"  cy="46" r="4" fill="#10b981"/>
-        <circle cx="350" cy="76" r="4" fill="#10b981"/>
-
-        <!-- ─── TRACEUR : Hanche (violet) ─── -->
-        <!-- Mar: 55→Y=64  Jeu: 80→Y=34 -->
-        <polyline
-          points="150,64 350,34"
-          fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linejoin="round"/>
-        <circle cx="150" cy="64" r="4" fill="#8b5cf6"/>
-        <circle cx="350" cy="34" r="4" fill="#8b5cf6"/>
-
-        <!-- ─── TRACEUR : Pull H. (cyan) ─── -->
-        <!-- Mar: 50→Y=70  Ven: 30→Y=94 -->
-        <polyline
-          points="150,70 450,94"
-          fill="none" stroke="#06b6d4" stroke-width="2" stroke-linejoin="round"/>
-        <circle cx="150" cy="70" r="4" fill="#06b6d4"/>
-        <circle cx="450" cy="94" r="4" fill="#06b6d4"/>
-
-        <!-- Tooltip indicatif sur Jeu (exemple survol) -->
-        <rect x="355" y="16" width="68" height="36" rx="4" fill="#1e2535" stroke="#2d3348" stroke-width="1"/>
-        <text x="360" y="28" fill="#94a3b8" font-size="8">Deadlift + Bench</text>
-        <text x="360" y="38" fill="#93c5fd" font-size="8">Prescrit: 150×4 @8</text>
-        <text x="360" y="48" fill="#fcd34d" font-size="8">Réel: 152×4 @8</text>
-
-      </svg>
-    </div>
-
-    <!-- Étiquettes jours ALIGNÉES sur le même grid7 que le programme -->
-    <div class="grid7 graph-day-labels">
-      <div class="day-lbl today">Lun 10</div>
-      <div class="day-lbl">Mar 11</div>
-      <div class="day-lbl" style="color:#2d3348">Mer 12</div>
-      <div class="day-lbl">Jeu 13</div>
-      <div class="day-lbl">Ven 14</div>
-      <div class="day-lbl" style="color:#2d3348">Sam 15</div>
-      <div class="day-lbl" style="color:#2d3348">Dim 16</div>
+    <div class="exo-block">
+      <div class="exo-name">Leg Press <span class="exo-tag" style="background:#10b98122;color:#10b981">Genou</span></div>
+      <div class="serie-row">
+        <div class="snum">S1</div>
+        <div class="bloc pre"><input class="fld p" value="200" readonly><input class="fld p" value="10" readonly><input class="fld p" value="7" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="200" readonly><input class="fld r" value="10" readonly><input class="fld r" value="7" readonly></div>
+        <div class="btn-opt">⋯</div>
+      </div>
     </div>
   </div>
 
-  <!-- ══ PROGRAMME ════════════════════════════════════════════════ -->
-  <div class="section-label">Programme — Semaine 3</div>
-  <div class="grid7">
-
-    <!-- LUNDI -->
-    <div class="day-col">
-      <div class="day-header today">Lun 10</div>
-      <div class="exo-block">
-        <div class="exo-name">Squat <span class="exo-tag" style="background:#10b98122;color:#10b981">Genou</span></div>
-        <div class="col-heads">
-          <div class="ch" style="color:#3b82f6">ch</div><div class="ch" style="color:#3b82f6">rep</div><div class="ch" style="color:#3b82f6">RPE</div>
-          <div class="vs-ph"></div>
-          <div class="ch" style="color:#f59e0b">ch</div><div class="ch" style="color:#f59e0b">rep</div><div class="ch" style="color:#f59e0b">RPE</div>
-          <div class="opt-ph"></div>
-        </div>
-        <div class="serie-row">
-          <div class="snum">S1</div>
-          <div class="bloc pre"><input class="fld p" value="100" readonly><input class="fld p" value="5" readonly><input class="fld p" value="7" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="102" readonly><input class="fld r" value="5" readonly><input class="fld r" value="7.5" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
-        <div class="serie-row">
-          <div class="snum">S2</div>
-          <div class="bloc pre"><input class="fld p" value="100" readonly><input class="fld p" value="5" readonly><input class="fld p" value="7" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="100" readonly><input class="fld r" value="5" readonly><input class="fld r" value="8" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
-        <div class="serie-row">
-          <div class="snum">S3</div>
-          <div class="bloc pre"><input class="fld p" value="100" readonly><input class="fld p" value="5" readonly><input class="fld p" value="8" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="98" readonly><input class="fld r" value="4" readonly><input class="fld r" value="9" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
+  <!-- ── MARDI ── -->
+  <div class="day-col">
+    <div class="exo-block">
+      <div class="exo-name">Pull-up <span class="exo-tag" style="background:#ec489922;color:#ec4899">Pull V.</span></div>
+      <div class="serie-row">
+        <div class="snum">S1</div>
+        <div class="bloc pre"><input class="fld p" value="BW" readonly><input class="fld p" value="8" readonly><input class="fld p" value="7" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="BW" readonly><input class="fld r" value="9" readonly><input class="fld r" value="6" readonly></div>
+        <div class="btn-opt">⋯</div>
       </div>
-      <div class="exo-block">
-        <div class="exo-name">Leg Press <span class="exo-tag" style="background:#10b98122;color:#10b981">Genou</span></div>
-        <div class="serie-row">
-          <div class="snum">S1</div>
-          <div class="bloc pre"><input class="fld p" value="200" readonly><input class="fld p" value="10" readonly><input class="fld p" value="7" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="200" readonly><input class="fld r" value="10" readonly><input class="fld r" value="7" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
+      <div class="serie-row">
+        <div class="snum">S2</div>
+        <div class="bloc pre"><input class="fld p" value="BW" readonly><input class="fld p" value="8" readonly><input class="fld p" value="8" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="BW" readonly><input class="fld r" value="7" readonly><input class="fld r" value="8" readonly></div>
+        <div class="btn-opt">⋯</div>
       </div>
     </div>
-
-    <!-- MARDI -->
-    <div class="day-col">
-      <div class="day-header">Mar 11</div>
-      <div class="exo-block">
-        <div class="exo-name">Pull-up <span class="exo-tag" style="background:#ec489922;color:#ec4899">Pull V.</span></div>
-        <div class="serie-row">
-          <div class="snum">S1</div>
-          <div class="bloc pre"><input class="fld p" value="BW" readonly><input class="fld p" value="8" readonly><input class="fld p" value="7" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="BW" readonly><input class="fld r" value="9" readonly><input class="fld r" value="6" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
-        <div class="serie-row">
-          <div class="snum">S2</div>
-          <div class="bloc pre"><input class="fld p" value="BW" readonly><input class="fld p" value="8" readonly><input class="fld p" value="8" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="BW" readonly><input class="fld r" value="7" readonly><input class="fld r" value="8" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
-      </div>
-      <div class="exo-block">
-        <div class="exo-name">Row Barre <span class="exo-tag" style="background:#06b6d422;color:#06b6d4">Pull H.</span></div>
-        <div class="serie-row">
-          <div class="snum">S1</div>
-          <div class="bloc pre"><input class="fld p" value="70" readonly><input class="fld p" value="8" readonly><input class="fld p" value="7" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="72" readonly><input class="fld r" value="8" readonly><input class="fld r" value="7" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
+    <div class="exo-block">
+      <div class="exo-name">Row Barre <span class="exo-tag" style="background:#06b6d422;color:#06b6d4">Pull H.</span></div>
+      <div class="serie-row">
+        <div class="snum">S1</div>
+        <div class="bloc pre"><input class="fld p" value="70" readonly><input class="fld p" value="8" readonly><input class="fld p" value="7" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="72" readonly><input class="fld r" value="8" readonly><input class="fld r" value="7" readonly></div>
+        <div class="btn-opt">⋯</div>
       </div>
     </div>
+  </div>
 
-    <!-- MERCREDI repos -->
-    <div class="day-col rest-col"><span>休</span>Repos</div>
+  <!-- ── MERCREDI repos ── -->
+  <div class="day-col rest"><span>休</span>Repos</div>
 
-    <!-- JEUDI -->
-    <div class="day-col">
-      <div class="day-header">Jeu 13</div>
-      <div class="exo-block">
-        <div class="exo-name">Deadlift <span class="exo-tag" style="background:#8b5cf622;color:#8b5cf6">Hanche</span></div>
-        <div class="serie-row">
-          <div class="snum">S1</div>
-          <div class="bloc pre"><input class="fld p" value="150" readonly><input class="fld p" value="4" readonly><input class="fld p" value="8" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="152" readonly><input class="fld r" value="4" readonly><input class="fld r" value="8" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
-        <div class="serie-row">
-          <div class="snum">S2</div>
-          <div class="bloc pre"><input class="fld p" value="150" readonly><input class="fld p" value="4" readonly><input class="fld p" value="8" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="150" readonly><input class="fld r" value="5" readonly><input class="fld r" value="7.5" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
+  <!-- ── JEUDI ── -->
+  <div class="day-col">
+    <div class="exo-block">
+      <div class="exo-name">Deadlift <span class="exo-tag" style="background:#8b5cf622;color:#8b5cf6">Hanche</span></div>
+      <div class="serie-row">
+        <div class="snum">S1</div>
+        <div class="bloc pre"><input class="fld p" value="150" readonly><input class="fld p" value="4" readonly><input class="fld p" value="8" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="152" readonly><input class="fld r" value="4" readonly><input class="fld r" value="8" readonly></div>
+        <div class="btn-opt">⋯</div>
       </div>
-      <div class="exo-block">
-        <div class="exo-name">Bench Press <span class="exo-tag" style="background:#ef444422;color:#ef4444">Push H.</span></div>
-        <div class="serie-row">
-          <div class="snum">S1</div>
-          <div class="bloc pre"><input class="fld p" value="90" readonly><input class="fld p" value="5" readonly><input class="fld p" value="7" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="90" readonly><input class="fld r" value="5" readonly><input class="fld r" value="7" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
+      <div class="serie-row">
+        <div class="snum">S2</div>
+        <div class="bloc pre"><input class="fld p" value="150" readonly><input class="fld p" value="4" readonly><input class="fld p" value="8" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="150" readonly><input class="fld r" value="5" readonly><input class="fld r" value="7.5" readonly></div>
+        <div class="btn-opt">⋯</div>
       </div>
     </div>
-
-    <!-- VENDREDI -->
-    <div class="day-col">
-      <div class="day-header">Ven 14</div>
-      <div class="exo-block">
-        <div class="exo-name">OHP <span class="exo-tag" style="background:#f9731622;color:#f97316">Push V.</span></div>
-        <div class="serie-row">
-          <div class="snum">S1</div>
-          <div class="bloc pre"><input class="fld p" value="60" readonly><input class="fld p" value="6" readonly><input class="fld p" value="7" readonly></div>
-          <div class="vs">vs</div>
-          <div class="bloc"><input class="fld r" value="60" readonly><input class="fld r" value="6" readonly><input class="fld r" value="7" readonly></div>
-          <div class="btn-opt">⋯</div>
-        </div>
+    <div class="exo-block">
+      <div class="exo-name">Bench <span class="exo-tag" style="background:#ef444422;color:#ef4444">Push H.</span></div>
+      <div class="serie-row">
+        <div class="snum">S1</div>
+        <div class="bloc pre"><input class="fld p" value="90" readonly><input class="fld p" value="5" readonly><input class="fld p" value="7" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="90" readonly><input class="fld r" value="5" readonly><input class="fld r" value="7" readonly></div>
+        <div class="btn-opt">⋯</div>
       </div>
     </div>
+  </div>
 
-    <!-- SAMEDI repos -->
-    <div class="day-col rest-col"><span>休</span>Repos</div>
+  <!-- ── VENDREDI ── -->
+  <div class="day-col">
+    <div class="exo-block">
+      <div class="exo-name">OHP <span class="exo-tag" style="background:#f9731622;color:#f97316">Push V.</span></div>
+      <div class="serie-row">
+        <div class="snum">S1</div>
+        <div class="bloc pre"><input class="fld p" value="60" readonly><input class="fld p" value="6" readonly><input class="fld p" value="7" readonly></div>
+        <div class="vs">vs</div>
+        <div class="bloc"><input class="fld r" value="60" readonly><input class="fld r" value="6" readonly><input class="fld r" value="7" readonly></div>
+        <div class="btn-opt">⋯</div>
+      </div>
+    </div>
+  </div>
 
-    <!-- DIMANCHE repos -->
-    <div class="day-col rest-col"><span>休</span>Repos</div>
+  <!-- ── SAMEDI repos ── -->
+  <div class="day-col rest"><span>休</span>Repos</div>
 
-  </div><!-- /grid7 -->
-</div><!-- /week-wrapper -->
+  <!-- ── DIMANCHE repos ── -->
+  <div class="day-col rest"><span>休</span>Repos</div>
+
+</div><!-- /main-grid -->
 
 <!-- ══ PROGRESSION CONSOLIDÉE ════════════════════════════════════ -->
 <div class="section-label">Progression — tous exercices</div>
@@ -502,57 +478,52 @@
     <div class="consol-row">
       <div class="c-exo">Squat</div>
       <div class="c-cell"><div class="cv-p">100×5 @7</div><div class="cv-r">102×5 @7.5</div></div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
     </div>
     <div class="consol-row">
       <div class="c-exo">Leg Press</div>
       <div class="c-cell"><div class="cv-p">200×10 @7</div><div class="cv-r">200×10 @7</div></div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
     </div>
     <div class="consol-row">
       <div class="c-exo">Pull-up</div>
-      <div class="c-empty">—</div>
+      <div class="c-mt">—</div>
       <div class="c-cell"><div class="cv-p">BW×8 @7</div><div class="cv-r">BW×9 @6</div></div>
-      <div class="c-empty">—</div><div class="c-empty">—</div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
     </div>
     <div class="consol-row">
       <div class="c-exo">Row Barre</div>
-      <div class="c-empty">—</div>
+      <div class="c-mt">—</div>
       <div class="c-cell"><div class="cv-p">70×8 @7</div><div class="cv-r">72×8 @7</div></div>
-      <div class="c-empty">—</div><div class="c-empty">—</div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
     </div>
     <div class="consol-row">
       <div class="c-exo">Deadlift</div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
       <div class="c-cell"><div class="cv-p">150×4 @8</div><div class="cv-r">152×4 @8</div></div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
     </div>
     <div class="consol-row">
       <div class="c-exo">Bench Press</div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
       <div class="c-cell"><div class="cv-p">90×5 @7</div><div class="cv-r">90×5 @7</div></div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
     </div>
     <div class="consol-row">
       <div class="c-exo">OHP</div>
-      <div class="c-empty">—</div><div class="c-empty">—</div><div class="c-empty">—</div>
-      <div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
       <div class="c-cell"><div class="cv-p">60×6 @7</div><div class="cv-r">60×6 @7</div></div>
-      <div class="c-empty">—</div><div class="c-empty">—</div>
+      <div class="c-mt">—</div><div class="c-mt">—</div>
     </div>
   </div>
 </div>
 
-<!-- ══ POPUP OPTIONS ════════════════════════════════════════════ -->
+<!-- ══ POPUP ══════════════════════════════════════════════════════ -->
 <div class="popup-overlay">
   <div class="popup-box">
     <div class="pop-title">Options — Squat S1 · Progression N+1</div>
     <div class="pop-sec">
-      <div class="pop-sec-lbl">Critères de progression (vers S. suivante)</div>
+      <div class="pop-sec-lbl">Critères de progression (vers semaine suivante)</div>
       <div class="pop-row"><label>Charge</label><input value="+2.5"><select><option>kg</option><option>%</option></select></div>
       <div class="pop-row"><label>Répétitions</label><input value="+0"><select><option>reps</option></select></div>
       <div class="pop-row"><label>Séries</label><input value="+0"><select><option>séries</option></select></div>
@@ -561,8 +532,8 @@
     </div>
     <div class="pop-sec">
       <div class="pop-sec-lbl">Copier vers séries suivantes</div>
-      <button class="pop-copy">📋 Copier sur S2, S3... (avec écrasement)</button>
-      <button class="pop-copy">📋 Copier sur S2, S3... (sans écrasement)</button>
+      <button class="pop-copy">📋 Copier → S2, S3... (avec écrasement)</button>
+      <button class="pop-copy">📋 Copier → S2, S3... (sans écrasement)</button>
     </div>
     <div class="pop-footer">
       <button class="btn-cancel">Annuler</button>

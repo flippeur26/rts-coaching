@@ -14,20 +14,17 @@
     border-left: 3px solid #3b82f6;
   }
 
-  /* ─── FILTRES ─── */
+  /* ── FILTRES ── */
   .filters-bar {
     background: #151823; border-bottom: 1px solid #2d3348;
     padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   }
   .filter-title { font-size: 10px; color: #64748b; text-transform: uppercase; margin-right: 4px; }
   .filter-group { display: flex; align-items: center; gap: 6px; }
-  .chip {
-    padding: 3px 10px; border-radius: 12px; font-size: 10px; cursor: pointer;
-    border: 1px solid; display: flex; align-items: center; gap: 4px;
-  }
+  .chip { padding: 3px 10px; border-radius: 12px; font-size: 10px; cursor: pointer; border: 1px solid; display: flex; align-items: center; gap: 4px; }
   .chip.on  { opacity: 1; }
   .chip.off { opacity: 0.3; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-chip { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   .sep { width: 1px; height: 20px; background: #2d3348; }
   .c-p   { border-color:#3b82f6; color:#3b82f6; }
   .c-r   { border-color:#f59e0b; color:#f59e0b; }
@@ -38,19 +35,18 @@
   .c-plh { border-color:#06b6d4; color:#06b6d4; }
   .c-plv { border-color:#ec4899; color:#ec4899; }
 
-  /* ════════════════════════════════════════════════════════════
-     GRILLE PRINCIPALE UNIQUE
-     gap: 0 obligatoire pour que le SVG soit aligné avec les colonnes
-     Les séparations visuelles sont faites avec border, pas gap.
-  ════════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════
+     GRILLE PRINCIPALE (gap: 0 obligatoire)
+     Graphique ET programme partagent ce même grid.
+  ══════════════════════════════════════════════════ */
   .main-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 0;
-    background: #0a0d14;
+    position: relative;   /* nécessaire pour que l'overlay SVG se positionne ici */
   }
 
-  /* La légende et le SVG s'étalent sur toute la largeur (7 colonnes) */
+  /* Légende — span 7 colonnes */
   .graph-legend {
     grid-column: 1 / -1;
     display: flex; gap: 14px; padding: 6px 10px;
@@ -58,24 +54,62 @@
     background: #12161f; border-bottom: 1px solid #1a1f2e;
   }
   .graph-legend span { display: flex; align-items: center; gap: 5px; }
-  .ln { width: 18px; height: 2px; border-radius: 1px; display:inline-block; }
-  .pt { width: 7px; height: 7px; border-radius: 50%; display:inline-block; }
+  .leg-line { width: 18px; height: 2px; border-radius: 1px; display: inline-block; }
+  .leg-dot  { width: 7px;  height: 7px; border-radius: 50%; display: inline-block; }
 
-  .graph-svg-row {
-    grid-column: 1 / -1;
+  /* ── CELLULES GRAPHIQUE ──
+     7 cellules directement dans le main-grid.
+     Chaque point est à left:50% → centre exact de la colonne.
+     L'alignement avec les colonnes programme en dessous est garanti.
+  ── */
+  .gcell {
+    height: 130px;
     background: #12161f;
     position: relative;
+    border-right: 1px solid #1e2535;
   }
-  .graph-svg-row svg {
-    display: block;
-    width: 100%;
-    height: 140px;
-    /* preserveAspectRatio none : le SVG s'étire exactement à la largeur du conteneur.
-       Les 7 colonnes SVG (100px chacune dans un viewBox 700px) correspondent
-       donc pixel pour pixel aux 7 colonnes CSS du main-grid. */
+  .gcell:last-child { border-right: none; }
+  .gcell.rest { background: #0b0e16; }
+
+  /* Lignes de repère horizontales dans chaque cellule */
+  .gcell::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px, transparent 31px,
+      #1a1f2e 31px, #1a1f2e 32px
+    );
+    pointer-events: none;
   }
 
-  /* En-têtes des jours — dans le main-grid, donc alignés automatiquement */
+  /* Point de donnée HTML — positionné au centre horizontal,
+     à une hauteur proportionnelle à la valeur (--y en %) */
+  .gdot {
+    position: absolute;
+    left: 50%;
+    top: var(--y);
+    transform: translate(-50%, -50%);
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px #12161f;
+    z-index: 2;
+  }
+  .gdot[data-t="prescrit"] { background: #3b82f6; }
+  .gdot[data-t="reel"]     { background: #f59e0b; }
+  .gdot[data-t="genou"]    { background: #10b981; }
+  .gdot[data-t="hanche"]   { background: #8b5cf6; }
+  .gdot[data-t="pull-h"]   { background: #06b6d4; }
+
+  /* SVG overlay : couvre exactement les 7 cellules graphique.
+     Tracé par JavaScript à partir des positions réelles des .gdot */
+  #graph-lines {
+    position: absolute;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ── EN-TÊTES JOURS ── dans le main-grid, donc alignés automatiquement */
   .day-header {
     font-size: 10px; font-weight: 700; text-align: center;
     padding: 5px 2px; color: #64748b; text-transform: uppercase;
@@ -85,13 +119,13 @@
   }
   .day-header.today { color: #3b82f6; }
   .day-header:last-child { border-right: none; }
+  .day-header.rest-h { color: #2d3348; }
 
-  /* Colonnes jour — dans le main-grid */
+  /* ── COLONNES JOUR PROGRAMME ── */
   .day-col {
     background: #12161f;
     padding: 8px 5px;
     border-right: 1px solid #0a0d14;
-    vertical-align: top;
     min-height: 200px;
   }
   .day-col:last-child { border-right: none; }
@@ -102,53 +136,29 @@
   }
   .day-col.rest span { font-size: 18px; }
 
-  /* ─── Exercices ─── */
   .exo-block { margin-bottom: 10px; }
-  .exo-name {
-    font-size: 10px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .exo-tag {
-    display: inline-block; font-size: 7px; padding: 1px 4px;
-    border-radius: 8px; margin-left: 3px; vertical-align: middle;
-  }
-  .col-heads {
-    display: flex; gap: 2px; margin-bottom: 2px;
-  }
+  .exo-name { font-size: 10px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .exo-tag  { display: inline-block; font-size: 7px; padding: 1px 4px; border-radius: 8px; margin-left: 3px; vertical-align: middle; }
+
+  .col-heads { display: flex; gap: 2px; margin-bottom: 2px; }
   .col-heads .ch { flex:1; font-size:7px; text-align:center; }
   .col-heads .vs-ph { width:12px; }
   .col-heads .opt-ph { width:18px; }
-  .serie-row {
-    display: flex; align-items: center; gap: 2px;
-    padding: 3px 2px; border-radius: 4px; margin-bottom: 2px;
-    background: #1a1f2e;
-  }
+
+  .serie-row { display: flex; align-items: center; gap: 2px; padding: 3px 2px; border-radius: 4px; margin-bottom: 2px; background: #1a1f2e; }
   .snum { font-size: 9px; color: #475569; width: 13px; flex-shrink:0; text-align:center; }
   .bloc { display: flex; gap: 2px; align-items: center; flex: 1; }
   .bloc.pre { border-right: 1px solid #2d3348; padding-right: 2px; }
-  .fld {
-    background: #0f1117; border: 1px solid #2d3348; border-radius: 3px;
-    padding: 2px 1px; font-size: 8px; text-align: center; width: 24px; color: #e2e8f0;
-  }
+  .fld { background: #0f1117; border: 1px solid #2d3348; border-radius: 3px; padding: 2px 1px; font-size: 8px; text-align: center; width: 24px; color: #e2e8f0; }
   .fld.p { border-color:#3b82f644; color:#93c5fd; }
   .fld.r { border-color:#f59e0b44; color:#fcd34d; }
   .vs { font-size: 7px; color: #334155; flex-shrink:0; width:12px; text-align:center; }
-  .btn-opt {
-    width: 16px; height: 16px; border-radius: 3px; background: #1e2535;
-    border: 1px solid #2d3348; cursor: pointer; display: flex;
-    align-items: center; justify-content: center; flex-shrink:0;
-    color: #475569; font-size: 10px;
-  }
+  .btn-opt { width: 16px; height: 16px; border-radius: 3px; background: #1e2535; border: 1px solid #2d3348; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink:0; color: #475569; font-size: 10px; }
 
-  /* ─── PROGRESSION CONSOLIDÉE ─── */
+  /* ── PROGRESSION CONSOLIDÉE ── */
   .consol-section { background: #0f1117; padding: 10px; }
   .consol-grid { display: flex; flex-direction: column; gap: 2px; }
-  .consol-row {
-    display: grid;
-    grid-template-columns: 120px repeat(7, 1fr);
-    gap: 3px; align-items: center;
-    padding: 4px 6px; background: #12161f; border-radius: 5px;
-  }
+  .consol-row { display: grid; grid-template-columns: 120px repeat(7, 1fr); gap: 3px; align-items: center; padding: 4px 6px; background: #12161f; border-radius: 5px; }
   .consol-row.hdr { background: transparent; }
   .c-exo { font-size: 10px; color: #94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .c-hdr { font-size: 8px; text-align: center; color: #475569; text-transform: uppercase; }
@@ -157,182 +167,122 @@
   .cv-r { font-size: 9px; color: #fcd34d; }
   .c-mt { font-size: 9px; color: #1e2535; text-align:center; }
 
-  /* ─── POPUP ─── */
-  .popup-overlay {
-    position: fixed; inset: 0; background: #00000088;
-    display: flex; align-items: center; justify-content: center; z-index: 100;
-  }
-  .popup-box {
-    background: #1a1f2e; border: 1px solid #2d3348; border-radius: 10px;
-    padding: 16px; width: 255px;
-  }
+  /* ── POPUP ── */
+  .popup-overlay { position: fixed; inset: 0; background: #00000088; display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .popup-box { background: #1a1f2e; border: 1px solid #2d3348; border-radius: 10px; padding: 16px; width: 255px; }
   .pop-title { font-size: 12px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px; }
   .pop-sec { margin-bottom: 10px; }
   .pop-sec-lbl { font-size: 9px; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
   .pop-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
   .pop-row label { font-size: 10px; color: #94a3b8; flex: 1; }
-  .pop-row input {
-    width: 48px; background: #0f1117; border: 1px solid #2d3348;
-    border-radius: 4px; padding: 3px 5px; color: #e2e8f0; font-size: 10px; text-align: center;
-  }
-  .pop-row select {
-    background: #0f1117; border: 1px solid #2d3348; border-radius: 4px;
-    padding: 2px 4px; color: #e2e8f0; font-size: 10px;
-  }
-  .pop-copy {
-    width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #2d3348;
-    background: #0f1117; color: #94a3b8; font-size: 10px; cursor: pointer;
-    margin-top: 4px; text-align: left;
-  }
+  .pop-row input { width: 48px; background: #0f1117; border: 1px solid #2d3348; border-radius: 4px; padding: 3px 5px; color: #e2e8f0; font-size: 10px; text-align: center; }
+  .pop-row select { background: #0f1117; border: 1px solid #2d3348; border-radius: 4px; padding: 2px 4px; color: #e2e8f0; font-size: 10px; }
+  .pop-copy { width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #2d3348; background: #0f1117; color: #94a3b8; font-size: 10px; cursor: pointer; margin-top: 4px; text-align: left; }
   .pop-footer { display: flex; gap: 6px; margin-top: 12px; }
-  .btn-cancel {
-    flex:1; padding: 6px; border-radius: 6px; border: 1px solid #2d3348;
-    background: transparent; color: #64748b; font-size: 10px; cursor: pointer;
-  }
-  .btn-save {
-    flex:1; padding: 6px; border-radius: 6px; border: none;
-    background: #3b82f6; color: white; font-size: 10px; cursor: pointer;
-  }
+  .btn-cancel { flex:1; padding: 6px; border-radius: 6px; border: 1px solid #2d3348; background: transparent; color: #64748b; font-size: 10px; cursor: pointer; }
+  .btn-save   { flex:1; padding: 6px; border-radius: 6px; border: none; background: #3b82f6; color: white; font-size: 10px; cursor: pointer; }
 </style>
 </head>
 <body>
 
-<!-- ══ FILTRES ════════════════════════════════════════════════════ -->
+<!-- FILTRES -->
 <div class="section-label">Affichage graphiques — traceurs &amp; types de stress</div>
 <div class="filters-bar">
   <div class="filter-group">
     <span class="filter-title">Données</span>
-    <div class="chip c-p on"><span class="dot" style="background:#3b82f6"></span>Prescrit</div>
-    <div class="chip c-r on"><span class="dot" style="background:#f59e0b"></span>Réel</div>
+    <div class="chip c-p on"><span class="dot-chip" style="background:#3b82f6"></span>Prescrit</div>
+    <div class="chip c-r on"><span class="dot-chip" style="background:#f59e0b"></span>Réel</div>
   </div>
   <div class="sep"></div>
   <div class="filter-group">
     <span class="filter-title">Patterns</span>
-    <div class="chip c-gn  on"><span class="dot" style="background:#10b981"></span>Genou</div>
-    <div class="chip c-ha  on"><span class="dot" style="background:#8b5cf6"></span>Hanche</div>
-    <div class="chip c-phh off"><span class="dot" style="background:#ef4444"></span>Push H.</div>
-    <div class="chip c-phv off"><span class="dot" style="background:#f97316"></span>Push V.</div>
-    <div class="chip c-plh on"><span class="dot" style="background:#06b6d4"></span>Pull H.</div>
-    <div class="chip c-plv off"><span class="dot" style="background:#ec4899"></span>Pull V.</div>
+    <div class="chip c-gn  on"><span class="dot-chip" style="background:#10b981"></span>Genou</div>
+    <div class="chip c-ha  on"><span class="dot-chip" style="background:#8b5cf6"></span>Hanche</div>
+    <div class="chip c-phh off"><span class="dot-chip" style="background:#ef4444"></span>Push H.</div>
+    <div class="chip c-phv off"><span class="dot-chip" style="background:#f97316"></span>Push V.</div>
+    <div class="chip c-plh on"><span class="dot-chip" style="background:#06b6d4"></span>Pull H.</div>
+    <div class="chip c-plv off"><span class="dot-chip" style="background:#ec4899"></span>Pull V.</div>
   </div>
 </div>
 
-<!-- ══ GRILLE UNIQUE : graphique + programme ══════════════════════
-     TOUT est dans ce même grid7.
-     Le SVG (grid-column: 1/-1) partage exactement la même largeur
-     que les 7 colonnes jours en dessous → alignement garanti.
-══════════════════════════════════════════════════════════════════ -->
-<div class="main-grid">
+<!-- GRILLE PRINCIPALE : graphique + programme dans le même grid -->
+<div class="main-grid" id="main-grid">
 
   <!-- Légende (span 7) -->
   <div class="graph-legend">
-    <span><div class="ln" style="background:#3b82f6"></div><div class="pt" style="background:#3b82f6"></div>Prescrit (charge)</span>
-    <span><div class="ln" style="background:#f59e0b"></div><div class="pt" style="background:#f59e0b"></div>Réel (charge)</span>
-    <span><div class="ln" style="background:#10b981"></div><div class="pt" style="background:#10b981"></div>Genou</span>
-    <span><div class="ln" style="background:#8b5cf6"></div><div class="pt" style="background:#8b5cf6"></div>Hanche</span>
-    <span><div class="ln" style="background:#06b6d4"></div><div class="pt" style="background:#06b6d4"></div>Pull H.</span>
+    <span><div class="leg-line" style="background:#3b82f6"></div><div class="leg-dot" style="background:#3b82f6"></div>Prescrit</span>
+    <span><div class="leg-line" style="background:#f59e0b"></div><div class="leg-dot" style="background:#f59e0b"></div>Réel</span>
+    <span><div class="leg-line" style="background:#10b981"></div><div class="leg-dot" style="background:#10b981"></div>Genou</span>
+    <span><div class="leg-line" style="background:#8b5cf6"></div><div class="leg-dot" style="background:#8b5cf6"></div>Hanche</span>
+    <span><div class="leg-line" style="background:#06b6d4"></div><div class="leg-dot" style="background:#06b6d4"></div>Pull H.</span>
   </div>
 
-  <!-- SVG (span 7) ─────────────────────────────────────────────
-       viewBox = 700 × 130  (7 colonnes × 100px)
-       Centres colonnes SVG : x = 50 150 250 350 450 550 650
-       Ces positions correspondent à (col + 0.5) / 7 de la largeur totale,
-       ce qui est exactement le centre de chaque colonne CSS 1fr.
-  ──────────────────────────────────────────────────────────────── -->
-  <div class="graph-svg-row">
-    <svg viewBox="0 0 700 130" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    7 CELLULES GRAPHIQUE — dans le main-grid (1 cellule = 1 colonne)
+    Les .gdot sont à left:50% → centre garanti de chaque colonne.
+    Valeurs --y : % depuis le haut (petit % = haute valeur)
+    Plage utile : 10% (max) → 85% (min)
 
-      <!-- Fond repos (Mer=col2, Sam=col5, Dim=col6) -->
-      <rect x="200" y="0" width="100" height="130" fill="#0a0d14" opacity="0.6"/>
-      <rect x="500" y="0" width="200" height="130" fill="#0a0d14" opacity="0.6"/>
+    Données fictives normalisées :
+      Prescrit charge : Lun=65 Mar=40 Jeu=80 Ven=50  (max=80)
+        Lun: 1-(65/80))*75+10 = 35%   Mar: 60%  Jeu: 10%  Ven: 50%
+      Réel charge     : Lun=62 Mar=43 Jeu=76 Ven=50
+        Lun: 38%  Mar: 57%  Jeu: 15%  Ven: 50%
+      Genou           : Lun=70 Jeu=45
+        Lun: 24%  Jeu: 58%
+      Hanche          : Mar=55 Jeu=80
+        Mar: 38%  Jeu: 10%
+      Pull H.         : Mar=50 Ven=30
+        Mar: 47%  Ven: 72%
+  -->
 
-      <!-- Séparateurs verticaux colonnes (aux mêmes positions que les borders CSS) -->
-      <line x1="100" y1="0" x2="100" y2="130" stroke="#1e2535" stroke-width="1"/>
-      <line x1="200" y1="0" x2="200" y2="130" stroke="#1e2535" stroke-width="1"/>
-      <line x1="300" y1="0" x2="300" y2="130" stroke="#1e2535" stroke-width="1"/>
-      <line x1="400" y1="0" x2="400" y2="130" stroke="#1e2535" stroke-width="1"/>
-      <line x1="500" y1="0" x2="500" y2="130" stroke="#1e2535" stroke-width="1"/>
-      <line x1="600" y1="0" x2="600" y2="130" stroke="#1e2535" stroke-width="1"/>
-
-      <!-- Repères horizontaux -->
-      <line x1="0" y1="20"  x2="700" y2="20"  stroke="#1a1f2e" stroke-width="1"/>
-      <line x1="0" y1="55"  x2="700" y2="55"  stroke="#1a1f2e" stroke-width="1"/>
-      <line x1="0" y1="90"  x2="700" y2="90"  stroke="#1a1f2e" stroke-width="1"/>
-      <line x1="0" y1="120" x2="700" y2="120" stroke="#1a1f2e" stroke-width="1"/>
-
-      <!--
-        Données (Y = 120 - valeur*1.1, axe Y : 120=bas, 10=haut)
-        Jours avec séances : Lun(x=50) Mar(x=150) Jeu(x=350) Ven(x=450)
-        Jours repos : Mer(x=250) Sam(x=550) Dim(x=650) — pas de point
-
-        Prescrit charge : Lun=65 Mar=40 Jeu=80 Ven=50
-          Y: Lun=120-65*1.1=48  Mar=120-44=76  Jeu=120-88=32  Ven=120-55=65
-        Réel charge    : Lun=62 Mar=43 Jeu=77 Ven=50
-          Y: Lun=120-68=52  Mar=120-47=73  Jeu=120-85=35  Ven=120-55=65
-        Genou          : Lun=70 Jeu=45
-          Y: Lun=120-77=43  Jeu=120-50=70
-        Hanche         : Mar=55 Jeu=80
-          Y: Mar=120-61=59  Jeu=120-88=32
-        Pull H.        : Mar=50 Ven=35
-          Y: Mar=120-55=65  Ven=120-39=81
-      -->
-
-      <!-- Zone remplie sous Prescrit (optionnel, léger) -->
-      <polygon
-        points="50,48 150,76 350,32 450,65 450,120 350,120 150,120 50,120"
-        fill="#3b82f6" opacity="0.05"/>
-
-      <!-- ── Traceur Prescrit (bleu) ── -->
-      <polyline points="50,48 150,76 350,32 450,65"
-        fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
-      <circle cx="50"  cy="48" r="4" fill="#3b82f6" stroke="#12161f" stroke-width="1.5"/>
-      <circle cx="150" cy="76" r="4" fill="#3b82f6" stroke="#12161f" stroke-width="1.5"/>
-      <circle cx="350" cy="32" r="4" fill="#3b82f6" stroke="#12161f" stroke-width="1.5"/>
-      <circle cx="450" cy="65" r="4" fill="#3b82f6" stroke="#12161f" stroke-width="1.5"/>
-
-      <!-- ── Traceur Réel (jaune) ── -->
-      <polyline points="50,52 150,73 350,35 450,65"
-        fill="none" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round"/>
-      <circle cx="50"  cy="52" r="4" fill="#f59e0b" stroke="#12161f" stroke-width="1.5"/>
-      <circle cx="150" cy="73" r="4" fill="#f59e0b" stroke="#12161f" stroke-width="1.5"/>
-      <circle cx="350" cy="35" r="4" fill="#f59e0b" stroke="#12161f" stroke-width="1.5"/>
-      <circle cx="450" cy="65" r="4" fill="#f59e0b" stroke="#12161f" stroke-width="1.5"/>
-
-      <!-- ── Traceur Genou (vert) ── -->
-      <polyline points="50,43 350,70"
-        fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="none"/>
-      <circle cx="50"  cy="43" r="4" fill="#10b981" stroke="#12161f" stroke-width="1.5"/>
-      <circle cx="350" cy="70" r="4" fill="#10b981" stroke="#12161f" stroke-width="1.5"/>
-
-      <!-- ── Traceur Hanche (violet) ── -->
-      <polyline points="150,59 350,32"
-        fill="none" stroke="#8b5cf6" stroke-width="2"/>
-      <circle cx="150" cy="59" r="4" fill="#8b5cf6" stroke="#12161f" stroke-width="1.5"/>
-      <circle cx="350" cy="32" r="4" fill="#8b5cf6" stroke="#12161f" stroke-width="1.5"/>
-
-      <!-- ── Traceur Pull H. (cyan) ── -->
-      <polyline points="150,65 450,81"
-        fill="none" stroke="#06b6d4" stroke-width="2"/>
-      <circle cx="150" cy="65" r="4" fill="#06b6d4" stroke="#12161f" stroke-width="1.5"/>
-      <circle cx="450" cy="81" r="4" fill="#06b6d4" stroke="#12161f" stroke-width="1.5"/>
-
-      <!-- Tooltip exemple (Jeu) -->
-      <rect x="358" y="10" width="72" height="38" rx="4" fill="#1e2535" stroke="#2d3348"/>
-      <text x="363" y="22" fill="#94a3b8" font-size="7.5">Deadlift + Bench</text>
-      <text x="363" y="32" fill="#93c5fd" font-size="7.5">P: 150×4 @8</text>
-      <text x="363" y="42" fill="#fcd34d" font-size="7.5">R: 152×4 @8</text>
-
-    </svg>
+  <!-- Lun -->
+  <div class="gcell" id="gcell-lun">
+    <div class="gdot" data-t="prescrit" style="--y: 35%"></div>
+    <div class="gdot" data-t="reel"     style="--y: 38%"></div>
+    <div class="gdot" data-t="genou"    style="--y: 24%"></div>
+  </div>
+  <!-- Mar -->
+  <div class="gcell" id="gcell-mar">
+    <div class="gdot" data-t="prescrit" style="--y: 60%"></div>
+    <div class="gdot" data-t="reel"     style="--y: 57%"></div>
+    <div class="gdot" data-t="hanche"   style="--y: 38%"></div>
+    <div class="gdot" data-t="pull-h"   style="--y: 47%"></div>
+  </div>
+  <!-- Mer (repos) -->
+  <div class="gcell rest" id="gcell-mer">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#2d3348;font-size:9px">repos</div>
+  </div>
+  <!-- Jeu -->
+  <div class="gcell" id="gcell-jeu">
+    <div class="gdot" data-t="prescrit" style="--y: 10%"></div>
+    <div class="gdot" data-t="reel"     style="--y: 15%"></div>
+    <div class="gdot" data-t="genou"    style="--y: 58%"></div>
+    <div class="gdot" data-t="hanche"   style="--y: 10%"></div>
+  </div>
+  <!-- Ven -->
+  <div class="gcell" id="gcell-ven">
+    <div class="gdot" data-t="prescrit" style="--y: 50%"></div>
+    <div class="gdot" data-t="reel"     style="--y: 50%"></div>
+    <div class="gdot" data-t="pull-h"   style="--y: 72%"></div>
+  </div>
+  <!-- Sam (repos) -->
+  <div class="gcell rest" id="gcell-sam">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#2d3348;font-size:9px">repos</div>
+  </div>
+  <!-- Dim (repos) -->
+  <div class="gcell rest" id="gcell-dim">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#2d3348;font-size:9px">repos</div>
   </div>
 
-  <!-- En-têtes jours (directement dans le main-grid = alignés avec SVG) -->
+  <!-- EN-TÊTES JOURS (dans le main-grid → alignés automatiquement) -->
   <div class="day-header today">Lun 10</div>
   <div class="day-header">Mar 11</div>
-  <div class="day-header" style="color:#2d3348">Mer 12</div>
+  <div class="day-header rest-h">Mer 12</div>
   <div class="day-header">Jeu 13</div>
   <div class="day-header">Ven 14</div>
-  <div class="day-header" style="color:#2d3348">Sam 15</div>
-  <div class="day-header" style="color:#2d3348">Dim 16</div>
+  <div class="day-header rest-h">Sam 15</div>
+  <div class="day-header rest-h">Dim 16</div>
 
   <!-- ── LUNDI ── -->
   <div class="day-col">
@@ -465,15 +415,14 @@
 
 </div><!-- /main-grid -->
 
-<!-- ══ PROGRESSION CONSOLIDÉE ════════════════════════════════════ -->
+<!-- PROGRESSION -->
 <div class="section-label">Progression — tous exercices</div>
 <div class="consol-section">
   <div class="consol-grid">
     <div class="consol-row hdr">
       <div></div>
       <div class="c-hdr">Lun</div><div class="c-hdr">Mar</div><div class="c-hdr">Mer</div>
-      <div class="c-hdr">Jeu</div><div class="c-hdr">Ven</div><div class="c-hdr">Sam</div>
-      <div class="c-hdr">Dim</div>
+      <div class="c-hdr">Jeu</div><div class="c-hdr">Ven</div><div class="c-hdr">Sam</div><div class="c-hdr">Dim</div>
     </div>
     <div class="consol-row">
       <div class="c-exo">Squat</div>
@@ -518,7 +467,7 @@
   </div>
 </div>
 
-<!-- ══ POPUP ══════════════════════════════════════════════════════ -->
+<!-- POPUP -->
 <div class="popup-overlay">
   <div class="popup-box">
     <div class="pop-title">Options — Squat S1 · Progression N+1</div>
@@ -542,5 +491,85 @@
   </div>
 </div>
 
+<script>
+/*
+  Après le chargement de la page, on mesure les positions pixel réelles
+  de chaque .gdot et on trace les lignes SVG entre eux.
+  Cela garantit un alignement parfait quelle que soit la largeur d'écran.
+*/
+window.addEventListener('load', () => {
+  const grid    = document.getElementById('main-grid');
+  const gcells  = grid.querySelectorAll('.gcell');
+
+  // Trouver la zone graphique : depuis le bord gauche de la 1re gcell
+  // jusqu'au bord droit de la 7e, et la hauteur des gcells
+  const firstCell = gcells[0].getBoundingClientRect();
+  const lastCell  = gcells[gcells.length - 1].getBoundingClientRect();
+  const gridRect  = grid.getBoundingClientRect();
+
+  const svgLeft   = firstCell.left  - gridRect.left;
+  const svgTop    = firstCell.top   - gridRect.top;
+  const svgWidth  = lastCell.right  - firstCell.left;
+  const svgHeight = firstCell.height;
+
+  // Créer le SVG overlay
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.id = 'graph-lines';
+  svg.style.left   = svgLeft + 'px';
+  svg.style.top    = svgTop  + 'px';
+  svg.style.width  = svgWidth  + 'px';
+  svg.style.height = svgHeight + 'px';
+  grid.appendChild(svg);
+
+  const tracers = {
+    'prescrit': '#3b82f6',
+    'reel':     '#f59e0b',
+    'genou':    '#10b981',
+    'hanche':   '#8b5cf6',
+    'pull-h':   '#06b6d4'
+  };
+
+  const areaRect = { left: firstCell.left, top: firstCell.top };
+
+  // 1. Tracer les lignes (en dessous des points)
+  Object.entries(tracers).forEach(([tracer, color]) => {
+    const dots = [...grid.querySelectorAll(`.gdot[data-t="${tracer}"]`)];
+    if (dots.length < 2) return;
+
+    const pts = dots.map(d => {
+      const r = d.getBoundingClientRect();
+      const x = r.left + r.width  / 2 - areaRect.left;
+      const y = r.top  + r.height / 2 - areaRect.top;
+      return `${x},${y}`;
+    }).join(' ');
+
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    poly.setAttribute('points', pts);
+    poly.setAttribute('fill', 'none');
+    poly.setAttribute('stroke', color);
+    poly.setAttribute('stroke-width', '2');
+    poly.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(poly);
+  });
+
+  // 2. Tracer les cercles par-dessus les lignes
+  Object.entries(tracers).forEach(([tracer, color]) => {
+    const dots = [...grid.querySelectorAll(`.gdot[data-t="${tracer}"]`)];
+    dots.forEach(d => {
+      const r = d.getBoundingClientRect();
+      const cx = r.left + r.width  / 2 - areaRect.left;
+      const cy = r.top  + r.height / 2 - areaRect.top;
+      const c  = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', cx);
+      c.setAttribute('cy', cy);
+      c.setAttribute('r', 4);
+      c.setAttribute('fill', color);
+      c.setAttribute('stroke', '#12161f');
+      c.setAttribute('stroke-width', '1.5');
+      svg.appendChild(c);
+    });
+  });
+});
+</script>
 </body>
 </html>

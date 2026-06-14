@@ -282,7 +282,7 @@ body {
 .btn-add-serie:hover { background: var(--bg3); color: var(--text2); border-color: var(--blue); border-style: solid; }
 
 /* ═══════════════════════════════════════════════
-   PROGRESSION CONSOLIDÉE
+   SECTION LABEL
 ═══════════════════════════════════════════════ */
 .section-label {
   font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
@@ -291,28 +291,133 @@ body {
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   font-weight: 700;
+  display: flex; align-items: center; gap: 10px;
 }
-.consol-section { background: var(--bg); padding: 8px 8px 12px; }
-.consol-grid { display: flex; flex-direction: column; gap: 2px; }
-.consol-row {
-  display: grid;
-  grid-template-columns: 110px repeat(7, 1fr);
-  gap: 2px; align-items: center;
-  padding: 5px 8px; border-radius: var(--radius);
-  background: var(--bg1); border: 1px solid transparent;
-  transition: border-color .15s;
+.section-label .sl-badge {
+  padding: 1px 7px; border-radius: 10px; font-size: 8px; font-weight:700;
+  background: #1d3a6e; color: var(--blue); border: 1px solid #2a4a8a;
+  letter-spacing: .2px;
 }
-.consol-row:hover { border-color: var(--border); }
-.consol-row.hdr {
-  background: transparent; border-color: transparent;
-  padding-bottom: 2px;
+
+/* ═══════════════════════════════════════════════
+   PROGRESSION BLOC — VUE 4 SEMAINES
+═══════════════════════════════════════════════ */
+.bloc-prog { background: var(--bg); padding: 10px 10px 16px; overflow-x: auto; }
+
+.bloc-table {
+  width: 100%; border-collapse: collapse; min-width: 560px;
 }
-.c-exo { font-size: 10px; color: var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
-.c-hdr { font-size: 8px; text-align: center; color: var(--text3); text-transform: uppercase; font-weight:700; letter-spacing:.3px; }
-.c-cell { text-align: center; }
-.cv-p { font-size: 9px; color: #93c5fd; font-weight:500; }
-.cv-r { font-size: 9px; color: #fcd34d; font-weight:500; }
-.c-mt { font-size: 9px; color: var(--border2); text-align:center; }
+
+/* En-tête semaines */
+.bloc-table thead tr th {
+  padding: 0; background: transparent;
+}
+.week-th {
+  padding: 6px 6px 4px; text-align: center; position: relative;
+}
+.week-th .wk-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .5px;
+  text-transform: uppercase; color: var(--text3);
+}
+.week-th .wk-dates {
+  font-size: 8px; color: var(--text3); opacity: .6; margin-top: 1px;
+  font-weight: 400;
+}
+.week-th.current .wk-label { color: var(--blue); }
+.week-th.current .wk-dates { color: var(--blue); opacity: .7; }
+.week-th.current::after {
+  content: '';
+  position: absolute; bottom: 0; left: 15%; right: 15%; height: 2px;
+  background: var(--blue); border-radius: 2px 2px 0 0;
+}
+.week-th.past .wk-label { color: var(--text3); }
+.week-th.future .wk-label { color: var(--text3); opacity: .5; }
+.week-th.future .wk-dates { opacity: .35; }
+
+.th-exo {
+  text-align: left; padding: 6px 10px 4px; font-size: 9px;
+  font-weight: 700; color: var(--text3); text-transform: uppercase;
+  letter-spacing: .5px; white-space: nowrap; min-width: 110px;
+}
+
+/* Ligne exercice */
+.exo-row {
+  border-top: 1px solid var(--border);
+}
+.exo-row:first-child { border-top: none; }
+
+.exo-row td {
+  padding: 8px 6px; vertical-align: top;
+}
+.exo-row td.td-name {
+  padding: 8px 10px; white-space: nowrap;
+}
+.td-exo-name {
+  font-size: 10px; font-weight: 700; color: var(--text); margin-bottom: 3px;
+}
+.td-exo-tag {
+  display: inline-block; font-size: 7px; padding: 1px 5px;
+  border-radius: 8px; font-weight: 600; border: 1px solid;
+}
+
+/* Cellule semaine dans la progression */
+.week-cell {
+  border-left: 1px solid var(--border);
+  padding: 7px 8px !important;
+  position: relative;
+}
+.week-cell.current-week {
+  background: #1d3a6e18;
+}
+.week-cell.future-week {
+  opacity: .55;
+}
+
+.wc-prescrit {
+  font-size: 9px; color: #93c5fd; font-weight: 600; white-space: nowrap;
+  display: flex; align-items: center; gap: 4px;
+}
+.wc-reel {
+  font-size: 9px; color: #fcd34d; font-weight: 500; white-space: nowrap;
+  margin-top: 2px; display: flex; align-items: center; gap: 4px;
+}
+.wc-planned {
+  font-size: 8px; color: var(--text3); font-style: italic; margin-top: 2px;
+}
+
+/* Badge delta entre semaines */
+.delta {
+  font-size: 8px; font-weight: 700; padding: 1px 4px; border-radius: 4px;
+  display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;
+}
+.delta.up   { color: #10b981; background: #10b98118; }
+.delta.down { color: #ef4444; background: #ef444418; }
+.delta.same { color: var(--text3); background: var(--bg3); }
+
+/* Flèche entre semaines */
+.arrow-col {
+  width: 18px; text-align: center; padding: 0 !important;
+  vertical-align: middle; color: var(--border2); font-size: 11px;
+}
+.arrow-col.up-arr   { color: #10b981; }
+.arrow-col.down-arr { color: #ef4444; }
+
+/* Badge semaine actuelle */
+.current-badge {
+  position: absolute; top: 4px; right: 4px;
+  font-size: 7px; padding: 1px 5px; border-radius: 8px;
+  background: #1d3a6e; color: var(--blue); font-weight: 700;
+  border: 1px solid #2a4a8a;
+}
+.planned-badge {
+  position: absolute; top: 4px; right: 4px;
+  font-size: 7px; padding: 1px 5px; border-radius: 8px;
+  background: var(--bg3); color: var(--text3); font-weight: 700;
+  border: 1px solid var(--border);
+}
+
+/* Ligne séparatrice exercice */
+.exo-row:hover td { background: #ffffff04; }
 
 /* ═══════════════════════════════════════════════
    POPUP OPTIONS
@@ -700,56 +805,252 @@ body {
 
 </div><!-- /main-grid -->
 
-<!-- PROGRESSION CONSOLIDÉE -->
-<div class="section-label">Progression semaine — tous exercices</div>
-<div class="consol-section">
-  <div class="consol-grid">
-    <div class="consol-row hdr">
-      <div></div>
-      <div class="c-hdr">Lun</div><div class="c-hdr">Mar</div><div class="c-hdr">Mer</div>
-      <div class="c-hdr">Jeu</div><div class="c-hdr">Ven</div><div class="c-hdr">Sam</div><div class="c-hdr">Dim</div>
-    </div>
-    <div class="consol-row">
-      <div class="c-exo">Squat</div>
-      <div class="c-cell"><div class="cv-p">100×5 @7</div><div class="cv-r">102×5 @7.5</div></div>
-      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
-    </div>
-    <div class="consol-row">
-      <div class="c-exo">Leg Press</div>
-      <div class="c-cell"><div class="cv-p">200×10 @7</div><div class="cv-r">200×10 @7</div></div>
-      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
-    </div>
-    <div class="consol-row">
-      <div class="c-exo">Pull-up</div>
-      <div class="c-mt">—</div>
-      <div class="c-cell"><div class="cv-p">BW×8 @7</div><div class="cv-r">BW×9 @6</div></div>
-      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
-    </div>
-    <div class="consol-row">
-      <div class="c-exo">Row Barre</div>
-      <div class="c-mt">—</div>
-      <div class="c-cell"><div class="cv-p">70×8 @7</div><div class="cv-r">72×8 @7</div></div>
-      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
-    </div>
-    <div class="consol-row">
-      <div class="c-exo">Deadlift</div>
-      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
-      <div class="c-cell"><div class="cv-p">150×4 @8</div><div class="cv-r">152×4 @8</div></div>
-      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
-    </div>
-    <div class="consol-row">
-      <div class="c-exo">Bench Press</div>
-      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
-      <div class="c-cell"><div class="cv-p">90×5 @7</div><div class="cv-r">90×5 @7</div></div>
-      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
-    </div>
-    <div class="consol-row">
-      <div class="c-exo">OHP</div>
-      <div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div><div class="c-mt">—</div>
-      <div class="c-cell"><div class="cv-p">60×6 @7</div><div class="cv-r">60×6 @7</div></div>
-      <div class="c-mt">—</div><div class="c-mt">—</div>
-    </div>
-  </div>
+<!-- PROGRESSION BLOC — 4 SEMAINES -->
+<div class="section-label">
+  Progression du bloc — tous exercices
+  <span class="sl-badge">Bloc Hypertrophie · 4 semaines</span>
+</div>
+<div class="bloc-prog">
+  <table class="bloc-table">
+    <thead>
+      <tr>
+        <th class="th-exo">Exercice</th>
+        <!-- S1 -->
+        <th class="week-th past">
+          <div class="wk-label">Semaine 1</div>
+          <div class="wk-dates">20 – 26 Mai</div>
+        </th>
+        <th class="arrow-col"></th>
+        <!-- S2 -->
+        <th class="week-th past">
+          <div class="wk-label">Semaine 2</div>
+          <div class="wk-dates">27 Mai – 2 Jun</div>
+        </th>
+        <th class="arrow-col"></th>
+        <!-- S3 — ACTUELLE -->
+        <th class="week-th current">
+          <div class="wk-label">Semaine 3</div>
+          <div class="wk-dates">10 – 16 Jun</div>
+        </th>
+        <th class="arrow-col"></th>
+        <!-- S4 -->
+        <th class="week-th future">
+          <div class="wk-label">Semaine 4</div>
+          <div class="wk-dates">17 – 23 Jun</div>
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- ── SQUAT ── -->
+      <tr class="exo-row">
+        <td class="td-name">
+          <div class="td-exo-name">Squat</div>
+          <span class="td-exo-tag" style="border-color:#10b98144;color:#10b981;background:#10b98110">Genou</span>
+        </td>
+        <!-- S1 passé -->
+        <td class="week-cell">
+          <div class="wc-prescrit">90×5 @7</div>
+          <div class="wc-reel">90×5 @7 <span class="delta same">=</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <!-- S2 passé -->
+        <td class="week-cell">
+          <div class="wc-prescrit">95×5 @7</div>
+          <div class="wc-reel">95×5 @7.5 <span class="delta up">↑ +5kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <!-- S3 actuelle -->
+        <td class="week-cell current-week">
+          <div class="current-badge">En cours</div>
+          <div class="wc-prescrit">100×5 @7</div>
+          <div class="wc-reel">102×5 @7.5 <span class="delta up">↑ +7kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <!-- S4 planifié -->
+        <td class="week-cell future-week">
+          <div class="planned-badge">Planifié</div>
+          <div class="wc-prescrit">102.5×5 @7</div>
+          <div class="wc-planned">+2.5kg si critères atteints</div>
+        </td>
+      </tr>
+
+      <!-- ── LEG PRESS ── -->
+      <tr class="exo-row">
+        <td class="td-name">
+          <div class="td-exo-name">Leg Press</div>
+          <span class="td-exo-tag" style="border-color:#10b98144;color:#10b981;background:#10b98110">Genou</span>
+        </td>
+        <td class="week-cell">
+          <div class="wc-prescrit">180×10 @7</div>
+          <div class="wc-reel">180×10 @7 <span class="delta same">=</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell">
+          <div class="wc-prescrit">190×10 @7</div>
+          <div class="wc-reel">185×10 @8 <span class="delta down">↓ −5kg</span></div>
+        </td>
+        <td class="arrow-col">→</td>
+        <td class="week-cell current-week">
+          <div class="current-badge">En cours</div>
+          <div class="wc-prescrit">200×10 @7</div>
+          <div class="wc-reel">200×10 @7 <span class="delta up">↑ +15kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell future-week">
+          <div class="planned-badge">Planifié</div>
+          <div class="wc-prescrit">205×10 @7</div>
+          <div class="wc-planned">+5kg si critères atteints</div>
+        </td>
+      </tr>
+
+      <!-- ── PULL-UP ── -->
+      <tr class="exo-row">
+        <td class="td-name">
+          <div class="td-exo-name">Pull-up</div>
+          <span class="td-exo-tag" style="border-color:#ec489944;color:#ec4899;background:#ec489910">Pull V.</span>
+        </td>
+        <td class="week-cell">
+          <div class="wc-prescrit">BW×6 @7</div>
+          <div class="wc-reel">BW×7 @6.5 <span class="delta up">↑ +1 rep</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell">
+          <div class="wc-prescrit">BW×7 @7</div>
+          <div class="wc-reel">BW×7 @7 <span class="delta same">=</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell current-week">
+          <div class="current-badge">En cours</div>
+          <div class="wc-prescrit">BW×8 @7</div>
+          <div class="wc-reel">BW×9 @6 <span class="delta up">↑ +2 rep</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell future-week">
+          <div class="planned-badge">Planifié</div>
+          <div class="wc-prescrit">+2.5kg×8 @7</div>
+          <div class="wc-planned">Lestage si RPE &lt; 7.5</div>
+        </td>
+      </tr>
+
+      <!-- ── ROW BARRE ── -->
+      <tr class="exo-row">
+        <td class="td-name">
+          <div class="td-exo-name">Row Barre</div>
+          <span class="td-exo-tag" style="border-color:#06b6d444;color:#06b6d4;background:#06b6d410">Pull H.</span>
+        </td>
+        <td class="week-cell">
+          <div class="wc-prescrit">60×8 @7</div>
+          <div class="wc-reel">62.5×8 @7 <span class="delta up">↑ +2.5kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell">
+          <div class="wc-prescrit">65×8 @7</div>
+          <div class="wc-reel">65×8 @7.5 <span class="delta up">↑ +2.5kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell current-week">
+          <div class="current-badge">En cours</div>
+          <div class="wc-prescrit">70×8 @7</div>
+          <div class="wc-reel">72×8 @7 <span class="delta up">↑ +7kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell future-week">
+          <div class="planned-badge">Planifié</div>
+          <div class="wc-prescrit">72.5×8 @7</div>
+          <div class="wc-planned">+2.5kg si critères atteints</div>
+        </td>
+      </tr>
+
+      <!-- ── DEADLIFT ── -->
+      <tr class="exo-row">
+        <td class="td-name">
+          <div class="td-exo-name">Deadlift</div>
+          <span class="td-exo-tag" style="border-color:#8b5cf644;color:#8b5cf6;background:#8b5cf610">Hanche</span>
+        </td>
+        <td class="week-cell">
+          <div class="wc-prescrit">130×4 @8</div>
+          <div class="wc-reel">130×4 @8 <span class="delta same">=</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell">
+          <div class="wc-prescrit">140×4 @8</div>
+          <div class="wc-reel">142.5×4 @8 <span class="delta up">↑ +12.5kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell current-week">
+          <div class="current-badge">En cours</div>
+          <div class="wc-prescrit">150×4 @8</div>
+          <div class="wc-reel">152×4 @8 <span class="delta up">↑ +9.5kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell future-week">
+          <div class="planned-badge">Planifié</div>
+          <div class="wc-prescrit">155×4 @8.5</div>
+          <div class="wc-planned">Deload si RPE &gt; 8.5</div>
+        </td>
+      </tr>
+
+      <!-- ── BENCH PRESS ── -->
+      <tr class="exo-row">
+        <td class="td-name">
+          <div class="td-exo-name">Bench Press</div>
+          <span class="td-exo-tag" style="border-color:#ef444444;color:#ef4444;background:#ef444410">Push H.</span>
+        </td>
+        <td class="week-cell">
+          <div class="wc-prescrit">80×5 @7</div>
+          <div class="wc-reel">80×5 @7.5 <span class="delta same">=</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell">
+          <div class="wc-prescrit">85×5 @7</div>
+          <div class="wc-reel">85×5 @7 <span class="delta up">↑ +5kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell current-week">
+          <div class="current-badge">En cours</div>
+          <div class="wc-prescrit">90×5 @7</div>
+          <div class="wc-reel">90×5 @7 <span class="delta up">↑ +5kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell future-week">
+          <div class="planned-badge">Planifié</div>
+          <div class="wc-prescrit">92.5×5 @7</div>
+          <div class="wc-planned">+2.5kg si critères atteints</div>
+        </td>
+      </tr>
+
+      <!-- ── OHP ── -->
+      <tr class="exo-row">
+        <td class="td-name">
+          <div class="td-exo-name">OHP</div>
+          <span class="td-exo-tag" style="border-color:#f9731644;color:#f97316;background:#f9731610">Push V.</span>
+        </td>
+        <td class="week-cell">
+          <div class="wc-prescrit">50×6 @7</div>
+          <div class="wc-reel">50×6 @7 <span class="delta same">=</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell">
+          <div class="wc-prescrit">55×6 @7</div>
+          <div class="wc-reel">55×6 @7.5 <span class="delta up">↑ +5kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell current-week">
+          <div class="current-badge">En cours</div>
+          <div class="wc-prescrit">60×6 @7</div>
+          <div class="wc-reel">62.5×6 @7 <span class="delta up">↑ +7.5kg</span></div>
+        </td>
+        <td class="arrow-col up-arr">→</td>
+        <td class="week-cell future-week">
+          <div class="planned-badge">Planifié</div>
+          <div class="wc-prescrit">62.5×6 @7</div>
+          <div class="wc-planned">+2.5kg si critères atteints</div>
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
 </div>
 
 <!-- POPUP OPTIONS -->

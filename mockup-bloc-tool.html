@@ -71,6 +71,51 @@ body {
 .btn-primary:hover { background: var(--blue); color: white; }
 
 /* ═══════════════════════════════════════════════
+   SÉLECTEUR DE SEMAINE — accès direct
+═══════════════════════════════════════════════ */
+.week-pills {
+  display: flex; justify-content: center; gap: 4px;
+  padding: 7px 14px; background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.week-pill {
+  flex-shrink: 0; padding: 4px 11px; border-radius: 6px;
+  border: none; background: var(--bg3); color: var(--text3);
+  font-size: 10px; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: all .15s;
+}
+.week-pill:hover { background: var(--border2); color: var(--text2); }
+.week-pill.active { background: var(--blue); color: white; }
+
+/* ═══════════════════════════════════════════════
+   AJOUT D'EXERCICE PAR JOUR
+═══════════════════════════════════════════════ */
+.btn-add-exo {
+  width: 100%; padding: 5px; border-radius: 5px; margin-top: 6px;
+  border: 1px dashed var(--border2); background: transparent;
+  color: var(--text3); font-size: 9px; font-weight: 600; cursor: pointer;
+  transition: all .15s; font-family: inherit;
+}
+.btn-add-exo:hover { background: #06402518; color: #34d399; border-color: #10b98166; }
+.add-exo-form {
+  display: flex; gap: 3px; margin-top: 6px;
+}
+.add-exo-input {
+  flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border2);
+  border-radius: 5px; padding: 5px 6px; font-size: 9px; color: var(--text);
+  font-family: inherit;
+}
+.add-exo-input:focus { outline: none; border-color: #10b981; }
+.add-exo-ok, .add-exo-cancel {
+  flex-shrink: 0; width: 22px; border-radius: 5px; border: none;
+  font-size: 10px; font-weight: 700; cursor: pointer;
+}
+.add-exo-ok { background: #10b981; color: white; }
+.add-exo-cancel { background: var(--bg3); color: var(--text3); border: 1px solid var(--border2); }
+.day-col.rest .btn-add-exo { margin-top: 10px; }
+
+/* ═══════════════════════════════════════════════
    FILTRES GRAPHIQUES
 ═══════════════════════════════════════════════ */
 .filters-bar {
@@ -338,6 +383,7 @@ body {
   text-align: left; padding: 6px 10px 4px; font-size: 9px;
   font-weight: 700; color: var(--text3); text-transform: uppercase;
   letter-spacing: .5px; white-space: nowrap; min-width: 110px;
+  position: sticky; left: 0; background: var(--bg); z-index: 2;
 }
 
 /* Ligne exercice */
@@ -351,7 +397,9 @@ body {
 }
 .exo-row td.td-name {
   padding: 8px 10px; white-space: nowrap;
+  position: sticky; left: 0; background: var(--bg1); z-index: 2;
 }
+.exo-row:hover td.td-name { background: var(--bg2); }
 .td-exo-name {
   font-size: 10px; font-weight: 700; color: var(--text); margin-bottom: 3px;
 }
@@ -519,13 +567,18 @@ body {
 <div class="week-header">
   <button class="week-nav-btn" id="prev-week">&#8592;</button>
   <div class="week-title">
-    <strong>Semaine 3 — Bloc Hypertrophie</strong>
-    <span>10 – 16 Juin 2026 &nbsp;·&nbsp; Mésocycle 2 / 4</span>
+    <strong id="week-title-main">Semaine 3 — Bloc Hypertrophie</strong>
+    <span id="week-title-dates">10 – 16 Juin 2026 &nbsp;·&nbsp; Mésocycle 2 / 4</span>
   </div>
-  <div class="week-actions">
-    <button class="btn-sm btn-ghost">Exporter</button>
-    <button class="btn-sm btn-primary">+ Exercice</button>
-  </div>
+  <button class="week-nav-btn" id="next-week">&#8594;</button>
+</div>
+
+<!-- SÉLECTEUR DE SEMAINE (accès direct) -->
+<div class="week-pills">
+  <button class="week-pill" data-week="1">S1</button>
+  <button class="week-pill" data-week="2">S2</button>
+  <button class="week-pill active" data-week="3">S3</button>
+  <button class="week-pill" data-week="4">S4</button>
 </div>
 
 <!-- FILTRES -->
@@ -663,6 +716,7 @@ body {
         <button class="btn-add-serie">+ Série</button>
       </div>
     </div>
+    <button class="btn-add-exo" data-day="lun">+ Exercice</button>
   </div>
 
   <!-- ══ MARDI ══ -->
@@ -713,12 +767,14 @@ body {
         <button class="btn-add-serie">+ Série</button>
       </div>
     </div>
+    <button class="btn-add-exo" data-day="mar">+ Exercice</button>
   </div>
 
   <!-- ══ MERCREDI repos ══ -->
   <div class="day-col rest">
     <div class="rest-icon">🌙</div>
     <span>Repos</span>
+    <button class="btn-add-exo" data-day="mer">+ Exercice</button>
   </div>
 
   <!-- ══ JEUDI ══ -->
@@ -769,6 +825,7 @@ body {
         <button class="btn-add-serie">+ Série</button>
       </div>
     </div>
+    <button class="btn-add-exo" data-day="jeu">+ Exercice</button>
   </div>
 
   <!-- ══ VENDREDI ══ -->
@@ -796,12 +853,13 @@ body {
         <button class="btn-add-serie">+ Série</button>
       </div>
     </div>
+    <button class="btn-add-exo" data-day="ven">+ Exercice</button>
   </div>
 
   <!-- ══ SAMEDI repos ══ -->
-  <div class="day-col rest"><div class="rest-icon">🌙</div><span>Repos</span></div>
+  <div class="day-col rest"><div class="rest-icon">🌙</div><span>Repos</span><button class="btn-add-exo" data-day="sam">+ Exercice</button></div>
   <!-- ══ DIMANCHE repos ══ -->
-  <div class="day-col rest"><div class="rest-icon">🌙</div><span>Repos</span></div>
+  <div class="day-col rest"><div class="rest-icon">🌙</div><span>Repos</span><button class="btn-add-exo" data-day="dim">+ Exercice</button></div>
 
 </div><!-- /main-grid -->
 
@@ -857,14 +915,14 @@ body {
         <!-- S2 passé -->
         <td class="week-cell">
           <div class="wc-prescrit">95×5 @7</div>
-          <div class="wc-reel">95×5 @7.5 <span class="delta up">↑ +5kg</span></div>
+          <div class="wc-reel">95×5 @7.5 <span class="delta up">↑ +5kg <small>(+5.6%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <!-- S3 actuelle -->
         <td class="week-cell current-week">
           <div class="current-badge">En cours</div>
           <div class="wc-prescrit">100×5 @7</div>
-          <div class="wc-reel">102×5 @7.5 <span class="delta up">↑ +7kg</span></div>
+          <div class="wc-reel">102×5 @7.5 <span class="delta up">↑ +7kg <small>(+7.4%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <!-- S4 planifié -->
@@ -888,13 +946,13 @@ body {
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell">
           <div class="wc-prescrit">190×10 @7</div>
-          <div class="wc-reel">185×10 @8 <span class="delta down">↓ −5kg</span></div>
+          <div class="wc-reel">185×10 @8 <span class="delta down">↓ −5kg <small>(−2.8%)</small></span></div>
         </td>
         <td class="arrow-col">→</td>
         <td class="week-cell current-week">
           <div class="current-badge">En cours</div>
           <div class="wc-prescrit">200×10 @7</div>
-          <div class="wc-reel">200×10 @7 <span class="delta up">↑ +15kg</span></div>
+          <div class="wc-reel">200×10 @7 <span class="delta up">↑ +15kg <small>(+7.9%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell future-week">
@@ -941,18 +999,18 @@ body {
         </td>
         <td class="week-cell">
           <div class="wc-prescrit">60×8 @7</div>
-          <div class="wc-reel">62.5×8 @7 <span class="delta up">↑ +2.5kg</span></div>
+          <div class="wc-reel">62.5×8 @7 <span class="delta up">↑ +2.5kg <small>(+4.2%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell">
           <div class="wc-prescrit">65×8 @7</div>
-          <div class="wc-reel">65×8 @7.5 <span class="delta up">↑ +2.5kg</span></div>
+          <div class="wc-reel">65×8 @7.5 <span class="delta up">↑ +2.5kg <small>(+3.8%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell current-week">
           <div class="current-badge">En cours</div>
           <div class="wc-prescrit">70×8 @7</div>
-          <div class="wc-reel">72×8 @7 <span class="delta up">↑ +7kg</span></div>
+          <div class="wc-reel">72×8 @7 <span class="delta up">↑ +7kg <small>(+10.0%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell future-week">
@@ -975,13 +1033,13 @@ body {
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell">
           <div class="wc-prescrit">140×4 @8</div>
-          <div class="wc-reel">142.5×4 @8 <span class="delta up">↑ +12.5kg</span></div>
+          <div class="wc-reel">142.5×4 @8 <span class="delta up">↑ +12.5kg <small>(+8.9%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell current-week">
           <div class="current-badge">En cours</div>
           <div class="wc-prescrit">150×4 @8</div>
-          <div class="wc-reel">152×4 @8 <span class="delta up">↑ +9.5kg</span></div>
+          <div class="wc-reel">152×4 @8 <span class="delta up">↑ +9.5kg <small>(+6.3%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell future-week">
@@ -1004,13 +1062,13 @@ body {
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell">
           <div class="wc-prescrit">85×5 @7</div>
-          <div class="wc-reel">85×5 @7 <span class="delta up">↑ +5kg</span></div>
+          <div class="wc-reel">85×5 @7 <span class="delta up">↑ +5kg <small>(+6.3%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell current-week">
           <div class="current-badge">En cours</div>
           <div class="wc-prescrit">90×5 @7</div>
-          <div class="wc-reel">90×5 @7 <span class="delta up">↑ +5kg</span></div>
+          <div class="wc-reel">90×5 @7 <span class="delta up">↑ +5kg <small>(+5.9%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell future-week">
@@ -1033,13 +1091,13 @@ body {
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell">
           <div class="wc-prescrit">55×6 @7</div>
-          <div class="wc-reel">55×6 @7.5 <span class="delta up">↑ +5kg</span></div>
+          <div class="wc-reel">55×6 @7.5 <span class="delta up">↑ +5kg <small>(+10.0%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell current-week">
           <div class="current-badge">En cours</div>
           <div class="wc-prescrit">60×6 @7</div>
-          <div class="wc-reel">62.5×6 @7 <span class="delta up">↑ +7.5kg</span></div>
+          <div class="wc-reel">62.5×6 @7 <span class="delta up">↑ +7.5kg <small>(+13.6%)</small></span></div>
         </td>
         <td class="arrow-col up-arr">→</td>
         <td class="week-cell future-week">
@@ -1241,6 +1299,38 @@ function smoothPath(pts) {
 }
 
 /* ═══════════════════════════════════════════════════════
+   NAVIGATION SEMAINES
+═══════════════════════════════════════════════════════ */
+const weekMeta = {
+  1: { label: 'Semaine 1 — Bloc Hypertrophie', dates: '27 Mai – 2 Juin 2026' },
+  2: { label: 'Semaine 2 — Bloc Hypertrophie', dates: '3 – 9 Juin 2026' },
+  3: { label: 'Semaine 3 — Bloc Hypertrophie', dates: '10 – 16 Juin 2026' },
+  4: { label: 'Semaine 4 — Bloc Hypertrophie', dates: '17 – 23 Juin 2026' },
+};
+let activeWeek = 3;
+const weekTitleMain = document.getElementById('week-title-main');
+const weekTitleDates = document.getElementById('week-title-dates');
+
+function setActiveWeek(w) {
+  activeWeek = w;
+  document.querySelectorAll('.week-pill').forEach(p => {
+    p.classList.toggle('active', Number(p.dataset.week) === w);
+  });
+  weekTitleMain.textContent = weekMeta[w].label;
+  weekTitleDates.textContent = `${weekMeta[w].dates} · Mésocycle ${w} / 4`;
+}
+
+document.querySelectorAll('.week-pill').forEach(pill => {
+  pill.addEventListener('click', () => setActiveWeek(Number(pill.dataset.week)));
+});
+document.getElementById('prev-week').addEventListener('click', () => {
+  if (activeWeek > 1) setActiveWeek(activeWeek - 1);
+});
+document.getElementById('next-week').addEventListener('click', () => {
+  if (activeWeek < 4) setActiveWeek(activeWeek + 1);
+});
+
+/* ═══════════════════════════════════════════════════════
    FILTRES — TOGGLE CHIPS
 ═══════════════════════════════════════════════════════ */
 document.querySelectorAll('.chip[data-tracer]').forEach(chip => {
@@ -1285,7 +1375,7 @@ overlay.addEventListener('click', (e) => { if (e.target === overlay) closePopup(
 /* ═══════════════════════════════════════════════════════
    BOUTONS + SÉRIE
 ═══════════════════════════════════════════════════════ */
-document.querySelectorAll('.btn-add-serie').forEach(btn => {
+function attachAddSerieListener(btn) {
   btn.addEventListener('click', () => {
     const zone = btn.parentElement;
     const rows = zone.querySelectorAll('.serie-row');
@@ -1307,7 +1397,85 @@ document.querySelectorAll('.btn-add-serie').forEach(btn => {
       overlay.classList.add('open');
     });
   });
-});
+}
+document.querySelectorAll('.btn-add-serie').forEach(attachAddSerieListener);
+
+/* ═══════════════════════════════════════════════════════
+   BOUTON + EXERCICE (par jour)
+═══════════════════════════════════════════════════════ */
+function attachAddExoListener(btn) {
+  btn.addEventListener('click', () => {
+    // Si un formulaire est déjà ouvert, on l'ignore
+    if (btn.previousElementSibling && btn.previousElementSibling.classList.contains('add-exo-form')) return;
+
+    const form = document.createElement('div');
+    form.className = 'add-exo-form';
+    form.innerHTML = `
+      <input class="add-exo-input" type="text" placeholder="Nom de l'exercice…">
+      <button class="add-exo-ok">✓</button>
+      <button class="add-exo-cancel">✕</button>
+    `;
+    btn.insertAdjacentElement('beforebegin', form);
+    btn.style.display = 'none';
+    const input = form.querySelector('.add-exo-input');
+    input.focus();
+
+    function cancel() {
+      form.remove();
+      btn.style.display = '';
+    }
+
+    function confirm() {
+      const name = input.value.trim();
+      if (!name) { cancel(); return; }
+
+      // Si le jour était en repos, on le transforme en jour actif
+      const dayCol = btn.closest('.day-col');
+      if (dayCol.classList.contains('rest')) {
+        dayCol.classList.remove('rest');
+        dayCol.innerHTML = '';
+        dayCol.appendChild(btn);
+      }
+
+      const exoBlock = document.createElement('div');
+      exoBlock.className = 'exo-block';
+      exoBlock.innerHTML = `
+        <div class="exo-head">
+          <div class="exo-name">${name}</div>
+        </div>
+        <div class="series-zone">
+          <div class="serie-row">
+            <div class="snum">S1</div>
+            <div class="bloc pre"><input class="fld p" placeholder="kg"><input class="fld p" placeholder="rep"><input class="fld p" placeholder="RPE"></div>
+            <div class="vs">vs</div>
+            <div class="bloc"><input class="fld r" placeholder="kg"><input class="fld r" placeholder="rep"><input class="fld r" placeholder="RPE"></div>
+            <button class="btn-opt">⋯</button>
+          </div>
+          <button class="btn-add-serie">+ Série</button>
+        </div>
+      `;
+      dayCol.insertBefore(exoBlock, btn);
+      exoBlock.querySelector('.btn-opt').addEventListener('click', (e) => {
+        e.stopPropagation();
+        popTitle.textContent = `Options — ${name} · Série 1`;
+        overlay.classList.add('open');
+      });
+      attachAddSerieListener(exoBlock.querySelector('.btn-add-serie'));
+
+      form.remove();
+      btn.style.display = '';
+      buildGraph();
+    }
+
+    form.querySelector('.add-exo-ok').addEventListener('click', confirm);
+    form.querySelector('.add-exo-cancel').addEventListener('click', cancel);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') confirm();
+      if (e.key === 'Escape') cancel();
+    });
+  });
+}
+document.querySelectorAll('.btn-add-exo').forEach(attachAddExoListener);
 
 /* ═══════════════════════════════════════════════════════
    INIT + REDIMENSIONNEMENT

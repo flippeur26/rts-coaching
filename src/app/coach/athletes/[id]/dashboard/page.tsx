@@ -8,12 +8,23 @@ import {
   computeStagnation,
   computeOverreachingSignal,
 } from '@/lib/compliance'
+import {
+  computeAcuteChronicRatios,
+  computeRCXL,
+  computeMonotonyStrain,
+  computeVolumeLandmarks,
+  type SessionLite,
+  type SetLite,
+} from '@/lib/load-management'
 import type { DailyTracker, Set as SetRow, Session } from '@/types/database'
 import ProfilAthleteCharts from '@/components/coach/ProfilAthleteCharts'
 import ComplianceCard from '@/components/coach/ComplianceCard'
 import StagnationBadge from '@/components/coach/StagnationBadge'
 import OverreachingBadge from '@/components/coach/OverreachingBadge'
 import WeeklyComplianceChart from '@/components/coach/WeeklyComplianceChart'
+import AcuteChronicCard from '@/components/coach/AcuteChronicCard'
+import MonotonyStrainBadge from '@/components/coach/MonotonyStrainBadge'
+import VolumeLandmarksCard from '@/components/coach/VolumeLandmarksCard'
 
 export default async function AthleteDashboardPage({
   params,
@@ -25,20 +36,31 @@ export default async function AthleteDashboardPage({
 
   const from30 = format(subDays(new Date(), 30), 'yyyy-MM-dd')
   const from28 = format(subDays(new Date(), 28), 'yyyy-MM-dd')
+  const from70 = format(subDays(new Date(), 70), 'yyyy-MM-dd')
 
-  const [{ data: trackers }, { data: sessions30 }] = await Promise.all([
+  const [{ data: trackers }, { data: sessions30 }, { data: sessions70 }] = await Promise.all([
     supabase.from('daily_trackers').select('*').eq('athlete_id', id).gte('date', from30).order('date', { ascending: false }),
     supabase.from('sessions').select('id, athlete_id, scheduled_date, status, coach_id, block_id, week_in_block, session_number, notes_coach, notes_athlete, bodyweight_kg, duration_min, session_feel, created_at, completed_at').eq('athlete_id', id).gte('scheduled_date', from28).order('scheduled_date', { ascending: false }),
+    supabase.from('sessions').select('id, scheduled_date').eq('athlete_id', id).gte('scheduled_date', from70).order('scheduled_date', { ascending: false }),
   ])
 
   const sessionIds = (sessions30 ?? []).map(s => s.id)
-  const { data: sets30 } = sessionIds.length
-    ? await supabase.from('sets').select('*').in('session_id', sessionIds)
-    : { data: [] }
+  const sessionIds70 = (sessions70 ?? []).map(s => s.id)
+
+  const [{ data: sets30 }, { data: sets70 }] = await Promise.all([
+    sessionIds.length
+      ? supabase.from('sets').select('*').in('session_id', sessionIds)
+      : Promise.resolve({ data: [] }),
+    sessionIds70.length
+      ? supabase.from('sets').select('session_id, exercise_name, set_number, weight_actual_kg, reps_actual, e1rm_kg').in('session_id', sessionIds70)
+      : Promise.resolve({ data: [] }),
+  ])
 
   const allTrackers = (trackers ?? []) as DailyTracker[]
   const allSessions = (sessions30 ?? []) as Session[]
   const allSets = (sets30 ?? []) as SetRow[]
+  const sessions70Full = (sessions70 ?? []) as SessionLite[]
+  const sets70Full = (sets70 ?? []) as SetLite[]
 
   // Existing dashboard data
   const alerts = computeAlerts(allTrackers)
@@ -50,6 +72,12 @@ export default async function AthleteDashboardPage({
   const weeklyCompliance = computeWeeklyCompliance(allSessions, allSets)
   const stagnation = computeStagnation(allSets)
   const overreaching = computeOverreachingSignal(allTrackers, allSets)
+
+  // Gestion de charge (METRICS_REFERENCE.md — A:C, rCXL, Monotonie/Strain, Volume Landmarks)
+  const acuteChronic = computeAcuteChronicRatios(allSessions, allSets)
+  const rcxl = computeRCXL(allSessions, allSets)
+  const monotonyStrain = computeMonotonyStrain(allSessions, allSets)
+  const volumeLandmarks = computeVolumeLandmarks(sessions70Full, sets70Full)
 
   const bodyweightData = allTrackers
     .filter(t => t.bodyweight_kg != null)
@@ -76,6 +104,9 @@ export default async function AthleteDashboardPage({
                    t.trend === 'down' ? <span className="text-red-400">↓</span> :
                    t.trend === 'stable' ? <span className="text-zinc-500">→</span> : null}
                 </div>
+                {t.effectSize != null && (
+                  <div className="mt-0.5 text-[10px] text-zinc-600">Δ {t.effectSize}</div>
+                )}
               </div>
             ))}
           </div>
@@ -128,6 +159,14 @@ export default async function AthleteDashboardPage({
           <OverreachingBadge data={overreaching} />
         </div>
       )}
+
+      {/* Gestion de charge */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <AcuteChronicCard data={acuteChronic} rcxl={rcxl} />
+        <VolumeLandmarksCard data={volumeLandmarks} />
+      </div>
+
+      <MonotonyStrainBadge data={monotonyStrain} />
 
       {bodyweightData.length > 1 && <ProfilAthleteCharts bodyweightData={bodyweightData} trackers={allTrackers} />}
     </div>

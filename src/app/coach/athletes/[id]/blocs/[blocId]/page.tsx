@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import BlockEditorClient from '@/components/coach/BlockEditorClient'
+import BlocCreationTool from '@/components/coach/bloc-tool/BlocCreationTool'
 import type { Block, Session, Set as SetRow } from '@/types/database'
 
 type SessionWithSets = Session & { sets: SetRow[] }
@@ -31,10 +31,12 @@ export default async function BlocEditorPage({
     .order('set_number', { referencedTable: 'sets', ascending: true })
 
   return (
-    <BlockEditorClient
-      initialBlock={block as Block}
-      initialSessions={((sessions ?? []) as unknown) as SessionWithSets[]}
-      athleteId={id}
-    />
+    <div className="p-4">
+      <BlocCreationTool
+        initialBlock={block as Block}
+        initialSessions={((sessions ?? []) as unknown) as SessionWithSets[]}
+        athleteId={id}
+      />
+    </div>
   )
 }

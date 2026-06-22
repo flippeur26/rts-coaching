@@ -1,4 +1,5 @@
 import type { DailyTracker, Set } from '@/types/database'
+import { calculateEffectSize, classifyEffectSize, type EffectSizeMagnitude } from '@/lib/load-management'
 
 export type AlertLevel = 'red' | 'orange' | 'green' | 'gray'
 
@@ -12,6 +13,7 @@ export interface E1rmTrend {
   lift: string
   value: number | null
   trend: 'up' | 'down' | 'stable' | 'none'
+  effectSize: EffectSizeMagnitude | null
 }
 
 export function computeAlerts(trackers: DailyTracker[]): AthleteAlert[] {
@@ -69,7 +71,7 @@ export function computeE1rmTrends(sets: Set[]): E1rmTrend[] {
       .filter(s => s.exercise_name.toLowerCase().includes(lift.toLowerCase()) && s.e1rm_kg != null)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-    if (liftSets.length === 0) return { lift, value: null, trend: 'none' }
+    if (liftSets.length === 0) return { lift, value: null, trend: 'none', effectSize: null }
 
     const recent = liftSets.slice(0, 3)
     const older = liftSets.slice(3, 6)
@@ -88,7 +90,16 @@ export function computeE1rmTrends(sets: Set[]): E1rmTrend[] {
       trend = 'stable'
     }
 
-    return { lift, value: Math.round(avgRecent), trend }
+    let effectSize: EffectSizeMagnitude | null = null
+    if (avgOlder != null) {
+      const window = liftSets.slice(0, 12).map(s => s.e1rm_kg!)
+      const mean = window.reduce((a, b) => a + b, 0) / window.length
+      const std = Math.sqrt(window.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / window.length)
+      const d = calculateEffectSize(avgRecent, avgOlder, std)
+      effectSize = d != null ? classifyEffectSize(d) : null
+    }
+
+    return { lift, value: Math.round(avgRecent), trend, effectSize }
   })
 }
 

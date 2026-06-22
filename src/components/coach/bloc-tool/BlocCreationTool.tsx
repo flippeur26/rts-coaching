@@ -303,6 +303,53 @@ export default function BlocCreationTool({ initialBlock, initialSessions, athlet
     await reload()
   }, [athleteId, block.id, activeWeek, reload])
 
+  /* Save progression criteria (week N+1) → block_progression_config, then re-sync S2..SN */
+  const saveProgConfig = useCallback(async (p: Popup, cfg: ProgConfig) => {
+    const res = await fetch(`/api/blocks/${block.id}/progress-week`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        exercise_name: p.exoName,
+        weight_enabled: cfg.chargeKg !== 0,
+        weight_delta: cfg.chargeKg,
+        weight_type: cfg.chargeUnit === '%' ? 'percent' : 'kg',
+        reps_delta: cfg.reps,
+        sets_delta: cfg.series,
+      }),
+    })
+    if (!res.ok) throw new Error('save failed')
+    await reload()
+  }, [block.id, reload])
+
+  /* Copy a serie's prescription to the following series of the same exercise/session */
+  const copySerieToFollowing = useCallback(async (p: Popup, mode: 'overwrite' | 'fill') => {
+    const session = sessions.find(s => s.id === p.sessionId)
+    if (!session) return
+    const source = session.sets.find(st => st.id === p.setId)
+    if (!source) return
+    const targets = session.sets.filter(
+      st => st.exercise_name === p.exoName && st.set_number > p.serieNum,
+    )
+    const fields: (keyof SetRow)[] = [
+      'weight_prescribed_kg', 'reps_prescribed', 'rpe_prescribed', 'tempo', 'rom_prescribed',
+    ]
+    for (const target of targets) {
+      const patch: Partial<SetRow> = {}
+      for (const f of fields) {
+        if (mode === 'overwrite' || target[f] == null) {
+          ;(patch as Record<string, unknown>)[f] = source[f]
+        }
+      }
+      if (Object.keys(patch).length === 0) continue
+      await fetch(`/api/sets/${target.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+    }
+    await reload()
+  }, [sessions, reload])
+
   /* Helpers for local pending state */
   const getSetVal = useCallback(
     <K extends keyof SetRow>(set: SetRow, field: K): SetRow[K] =>
@@ -530,10 +577,18 @@ export default function BlocCreationTool({ initialBlock, initialSessions, athlet
       {popup && (
         <ProgOptionsPopup
           popup={popup}
+          blockId={block.id}
           onClose={() => setPopup(null)}
-          onSave={(cfg) => {
-            // TODO: persist to block_progression_config
-            setPopup(null)
+          onSave={async (cfg) => {
+            try {
+              await saveProgConfig(popup, cfg)
+              setPopup(null)
+            } catch {
+              // garder le popup ouvert pour réessayer
+            }
+          }}
+          onCopy={async (mode) => {
+            await copySerieToFollowing(popup, mode)
           }}
         />
       )}
@@ -945,15 +1000,47 @@ function NumInput({
 ═══════════════════════════════════════════════════════════════════════════ */
 
 function ProgOptionsPopup({
-  popup, onClose, onSave,
+  popup, blockId, onClose, onSave, onCopy,
 }: {
   popup: Popup
+  blockId: string
   onClose: () => void
   onSave: (cfg: ProgConfig) => void
+  onCopy: (mode: 'overwrite' | 'fill') => void | Promise<void>
 }) {
   const [cfg, setCfg] = useState<ProgConfig>(popup.config)
+  const [saving, setSaving] = useState(false)
+  const [copying, setCopying] = useState<'overwrite' | 'fill' | null>(null)
   const upd = <K extends keyof ProgConfig>(k: K, v: ProgConfig[K]) =>
     setCfg(prev => ({ ...prev, [k]: v }))
+
+  /* Prefill from persisted config */
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/blocks/${blockId}/progress-week?exercise=${encodeURIComponent(popup.exoName)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (cancelled || !data) return
+        setCfg(prev => ({
+          ...prev,
+          chargeKg: data.weight_delta ?? prev.chargeKg,
+          chargeUnit: data.weight_type === 'percent' ? '%' : 'kg',
+          reps: data.reps_delta ?? prev.reps,
+          series: data.sets_delta ?? prev.series,
+        }))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [blockId, popup.exoName])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try { await onSave(cfg) } finally { setSaving(false) }
+  }
+  const handleCopy = async (mode: 'overwrite' | 'fill') => {
+    setCopying(mode)
+    try { await onCopy(mode) } finally { setCopying(null) }
+  }
 
   return (
     <div
@@ -1050,11 +1137,19 @@ function ProgOptionsPopup({
             Copier vers séries suivantes
             <div className="h-px flex-1 bg-zinc-800" />
           </div>
-          <button className="mb-1.5 flex w-full items-center gap-2 rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:border-blue-500/50 hover:text-blue-300">
-            <span>📋</span> Avec écrasement
+          <button
+            onClick={() => handleCopy('overwrite')}
+            disabled={copying !== null}
+            className="mb-1.5 flex w-full items-center gap-2 rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:border-blue-500/50 hover:text-blue-300 disabled:opacity-50"
+          >
+            <span>📋</span> {copying === 'overwrite' ? 'Copie…' : 'Avec écrasement'}
           </button>
-          <button className="flex w-full items-center gap-2 rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:border-blue-500/50 hover:text-blue-300">
-            <span>📄</span> Sans écrasement
+          <button
+            onClick={() => handleCopy('fill')}
+            disabled={copying !== null}
+            className="flex w-full items-center gap-2 rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:border-blue-500/50 hover:text-blue-300 disabled:opacity-50"
+          >
+            <span>📄</span> {copying === 'fill' ? 'Copie…' : 'Sans écrasement'}
           </button>
         </div>
 
@@ -1064,10 +1159,11 @@ function ProgOptionsPopup({
             Annuler
           </button>
           <button
-            onClick={() => onSave(cfg)}
-            className="flex-1 rounded bg-blue-600 py-1.5 text-xs font-bold text-white transition-colors hover:bg-blue-500"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 rounded bg-blue-600 py-1.5 text-xs font-bold text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
           >
-            Enregistrer
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
       </div>

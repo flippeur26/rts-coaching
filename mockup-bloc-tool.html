@@ -1166,6 +1166,75 @@ body {
 
 <script>
 /* ═══════════════════════════════════════════════════════
+   PERSISTANCE (localStorage) — état + restauration structure
+   Démo autonome : les éditions, l'ajout d'exos/séries et les
+   données propres à chaque semaine survivent au rechargement.
+═══════════════════════════════════════════════════════ */
+var STORAGE_KEY = 'rts-mockup-bloc-v1';
+var __BLOC = (function () {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; }
+  catch (e) { return null; }
+})();
+
+// Restaurer la structure (exos/séries ajoutés) AVANT l'attache des listeners
+(function restoreStructure() {
+  if (!__BLOC || !__BLOC.structure) return;
+  const grid = document.getElementById('main-grid');
+  const cols = [...grid.querySelectorAll(':scope > .day-col')];
+  if (!cols.length) return;
+  const anchor = cols[0].previousElementSibling;
+  cols.forEach(c => c.remove());
+  if (anchor) anchor.insertAdjacentHTML('afterend', __BLOC.structure);
+  else grid.insertAdjacentHTML('beforeend', __BLOC.structure);
+})();
+
+function blocInputs() {
+  return [...document.querySelectorAll('#main-grid > .day-col .fld')];
+}
+function inputKey(inp) {
+  const grid = document.getElementById('main-grid');
+  const cols = [...grid.querySelectorAll(':scope > .day-col')];
+  const col = inp.closest('.day-col');
+  const dayIdx = cols.indexOf(col);
+  const exo = inp.closest('.exo-block');
+  const exos = [...col.querySelectorAll('.exo-block')];
+  const exoIdx = exo ? exos.indexOf(exo) : -1;
+  const row = inp.closest('.serie-row');
+  const rows = exo ? [...exo.querySelectorAll('.serie-row')] : [];
+  const rowIdx = rows.indexOf(row);
+  const blk = inp.closest('.bloc');
+  const kind = blk && blk.classList.contains('pre') ? 'p' : 'r';
+  const fields = blk ? [...blk.querySelectorAll('.fld')] : [];
+  const fIdx = fields.indexOf(inp);
+  return `${dayIdx}.${exoIdx}.${rowIdx}.${kind}.${fIdx}`;
+}
+function snapshotValues() {
+  const o = {};
+  blocInputs().forEach(inp => { o[inputKey(inp)] = inp.value; });
+  return o;
+}
+function applyWeekValues(week) {
+  const vals = (__BLOC && __BLOC.values && __BLOC.values[week]) || {};
+  blocInputs().forEach(inp => {
+    const k = inputKey(inp);
+    if (k in vals) { inp.value = vals[k]; inp.setAttribute('value', vals[k]); }
+  });
+}
+function saveCurrentWeekValues() {
+  if (!__BLOC) return;
+  __BLOC.values = __BLOC.values || {};
+  __BLOC.values[activeWeek] = snapshotValues();
+}
+function saveStructure() {
+  if (!__BLOC) return;
+  const grid = document.getElementById('main-grid');
+  __BLOC.structure = [...grid.querySelectorAll(':scope > .day-col')].map(c => c.outerHTML).join('');
+}
+function persistBloc() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(__BLOC)); } catch (e) {}
+}
+
+/* ═══════════════════════════════════════════════════════
    CONFIGURATION TRACEURS
 ═══════════════════════════════════════════════════════ */
 const TRACERS = {
@@ -1312,12 +1381,17 @@ const weekTitleMain = document.getElementById('week-title-main');
 const weekTitleDates = document.getElementById('week-title-dates');
 
 function setActiveWeek(w) {
+  // Sauver les valeurs de la semaine quittée avant de basculer
+  if (__BLOC) saveCurrentWeekValues();
   activeWeek = w;
   document.querySelectorAll('.week-pill').forEach(p => {
     p.classList.toggle('active', Number(p.dataset.week) === w);
   });
   weekTitleMain.textContent = weekMeta[w].label;
   weekTitleDates.textContent = `${weekMeta[w].dates} · Mésocycle ${w} / 4`;
+  // Charger les valeurs de la nouvelle semaine
+  if (__BLOC) { applyWeekValues(w); persistBloc(); }
+  buildGraph();
 }
 
 document.querySelectorAll('.week-pill').forEach(pill => {
@@ -1396,6 +1470,8 @@ function attachAddSerieListener(btn) {
       popTitle.textContent = `Options — Série ${nextNum}`;
       overlay.classList.add('open');
     });
+    // Persister la nouvelle structure
+    saveCurrentWeekValues(); saveStructure(); persistBloc();
   });
 }
 document.querySelectorAll('.btn-add-serie').forEach(attachAddSerieListener);
@@ -1465,6 +1541,8 @@ function attachAddExoListener(btn) {
       form.remove();
       btn.style.display = '';
       buildGraph();
+      // Persister la nouvelle structure
+      saveCurrentWeekValues(); saveStructure(); persistBloc();
     }
 
     form.querySelector('.add-exo-ok').addEventListener('click', confirm);
@@ -1476,6 +1554,42 @@ function attachAddExoListener(btn) {
   });
 }
 document.querySelectorAll('.btn-add-exo').forEach(attachAddExoListener);
+
+/* ═══════════════════════════════════════════════════════
+   PERSISTANCE — INITIALISATION
+═══════════════════════════════════════════════════════ */
+(function initPersistence() {
+  if (!__BLOC) {
+    // Premier chargement : amorcer les 4 semaines avec les valeurs du DOM
+    __BLOC = { values: {}, structure: null };
+    const seed = snapshotValues();
+    [1, 2, 3, 4].forEach(w => { __BLOC.values[w] = { ...seed }; });
+    persistBloc();
+  }
+  // Appliquer les valeurs de la semaine active
+  applyWeekValues(activeWeek);
+
+  // Sauvegarde à chaque édition (délégation → survit aux ajouts dynamiques)
+  document.getElementById('main-grid').addEventListener('input', e => {
+    const t = e.target;
+    if (!t.classList || !t.classList.contains('fld')) return;
+    __BLOC.values = __BLOC.values || {};
+    __BLOC.values[activeWeek] = __BLOC.values[activeWeek] || {};
+    __BLOC.values[activeWeek][inputKey(t)] = t.value;
+    persistBloc();
+  });
+
+  // Bouton « reset démo »
+  const reset = document.createElement('button');
+  reset.id = 'reset-demo';
+  reset.textContent = '↺ Reset démo';
+  reset.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100;background:#1e2536;color:#9aa4b2;border:1px solid #2c3650;border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;';
+  reset.addEventListener('click', () => {
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  });
+  document.body.appendChild(reset);
+})();
 
 /* ═══════════════════════════════════════════════════════
    INIT + REDIMENSIONNEMENT

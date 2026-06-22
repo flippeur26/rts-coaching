@@ -275,6 +275,34 @@ export default function BlocCreationTool({ initialBlock, initialSessions, athlet
     await reload()
   }, [reload])
 
+  /* Add a new exercise to a day — creates the session first if the day is a rest day */
+  const addExercise = useCallback(async (day: DayData, exoName: string) => {
+    let sessionId = day.sessions[0]?.id
+    if (!sessionId) {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          athlete_id: athleteId,
+          block_id: block.id,
+          scheduled_date: day.dateStr,
+          week_in_block: activeWeek,
+          session_number: 1,
+          notes_coach: `Jour ${activeWeek}`,
+        }),
+      })
+      if (!res.ok) return
+      const created = await res.json()
+      sessionId = created.id
+    }
+    await fetch(`/api/sessions/${sessionId}/sets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exercise_name: exoName, set_number: 1 }),
+    })
+    await reload()
+  }, [athleteId, block.id, activeWeek, reload])
+
   /* Helpers for local pending state */
   const getSetVal = useCallback(
     <K extends keyof SetRow>(set: SetRow, field: K): SetRow[K] =>
@@ -320,6 +348,23 @@ export default function BlocCreationTool({ initialBlock, initialSessions, athlet
         >
           →
         </button>
+      </div>
+
+      {/* ── SÉLECTEUR DE SEMAINE (accès direct) ── */}
+      <div className="flex items-center justify-center gap-1 overflow-x-auto border-b border-zinc-800 bg-zinc-900/60 px-3 py-1.5">
+        {Array.from({ length: totalWeeks }, (_, i) => i + 1).map(w => (
+          <button
+            key={w}
+            onClick={() => setActiveWeek(w)}
+            className={`flex-shrink-0 rounded px-2.5 py-1 text-[10px] font-bold transition-colors ${
+              w === activeWeek
+                ? 'bg-blue-600 text-white'
+                : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300'
+            }`}
+          >
+            S{w}
+          </button>
+        ))}
       </div>
 
       {/* ── FILTER BAR ── */}
@@ -468,6 +513,7 @@ export default function BlocCreationTool({ initialBlock, initialSessions, athlet
             onDeleteSet={deleteSet}
             onOpenPopup={setPopup}
             saving={saving}
+            onAddExercise={addExercise}
           />
         ))}
       </div>
@@ -545,7 +591,7 @@ function Chip({ tracer, active, onToggle }: {
 ═══════════════════════════════════════════════════════════════════════════ */
 
 function DayColumn({
-  day, isLast, getSetVal, onPending, onSave, onAddSet, onDeleteSet, onOpenPopup, saving,
+  day, isLast, getSetVal, onPending, onSave, onAddSet, onDeleteSet, onOpenPopup, saving, onAddExercise,
 }: {
   day: DayData
   isLast: boolean
@@ -556,6 +602,7 @@ function DayColumn({
   onDeleteSet: (setId: string) => void
   onOpenPopup: (p: Popup) => void
   saving: Set<string>
+  onAddExercise: (day: DayData, exoName: string) => void
 }) {
   const isRest = day.sessions.length === 0
   return (
@@ -564,9 +611,12 @@ function DayColumn({
       style={{ borderRight: isLast ? undefined : '1px solid #1f2b42' }}
     >
       {isRest ? (
-        <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 text-zinc-700">
+        <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 p-1.5 text-zinc-700">
           <span className="text-xl opacity-30">🌙</span>
           <span className="text-[9px]">Repos</span>
+          <div className="mt-1 w-full">
+            <AddExoButton onAdd={name => onAddExercise(day, name)} />
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-1.5 p-1.5">
@@ -592,8 +642,62 @@ function DayColumn({
               </div>
             )
           })}
+          <AddExoButton onAdd={name => onAddExercise(day, name)} />
         </div>
       )}
+    </div>
+  )
+}
+
+/* ─── Add exercise inline form ─────────────────────────────────────────── */
+
+function AddExoButton({ onAdd }: { onAdd: (name: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full rounded border border-dashed border-zinc-700/60 py-1 text-[9px] font-semibold text-zinc-500 transition-colors hover:border-emerald-500/50 hover:text-emerald-400"
+      >
+        + Exercice
+      </button>
+    )
+  }
+
+  const submit = () => {
+    const trimmed = name.trim()
+    if (trimmed) onAdd(trimmed)
+    setName('')
+    setOpen(false)
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        autoFocus
+        value={name}
+        onChange={e => setName(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') submit()
+          if (e.key === 'Escape') { setOpen(false); setName('') }
+        }}
+        placeholder="Nom de l'exercice…"
+        className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950 px-1.5 py-1 text-[9px] text-white focus:border-emerald-500 focus:outline-none"
+      />
+      <button
+        onClick={submit}
+        className="flex-shrink-0 rounded bg-emerald-600 px-1.5 py-1 text-[9px] font-bold text-white hover:bg-emerald-500"
+      >
+        ✓
+      </button>
+      <button
+        onClick={() => { setOpen(false); setName('') }}
+        className="flex-shrink-0 rounded border border-zinc-700 px-1.5 py-1 text-[9px] text-zinc-400 hover:text-white"
+      >
+        ✕
+      </button>
     </div>
   )
 }
@@ -1009,17 +1113,26 @@ function ProgTable({
   function getWeekSummary(exo: string, week: number): {
     pWeight: number | null; pReps: number | null; pRpe: number | null
     aWeight: number | null; aReps: number | null; aRpe: number | null
-    delta: number | null
+    delta: number | null; deltaPct: number | null
   } {
     const sessions = sessionsByWeek[week] ?? []
     const sets = sessions.flatMap(s => s.sets ?? []).filter(s => s.exercise_name === exo)
-    if (sets.length === 0) return { pWeight: null, pReps: null, pRpe: null, aWeight: null, aReps: null, aRpe: null, delta: null }
+    if (sets.length === 0) {
+      return {
+        pWeight: null, pReps: null, pRpe: null,
+        aWeight: null, aReps: null, aRpe: null,
+        delta: null, deltaPct: null,
+      }
+    }
     // Top set = highest prescribed weight
     const top = sets.reduce((best, s) => (s.weight_prescribed_kg ?? 0) > (best.weight_prescribed_kg ?? 0) ? s : best, sets[0])
     const prevSets = (sessionsByWeek[week - 1] ?? []).flatMap(s => s.sets ?? []).filter(s => s.exercise_name === exo)
     const prevTop = prevSets.length > 0 ? prevSets.reduce((b, s) => (s.weight_prescribed_kg ?? 0) > (b.weight_prescribed_kg ?? 0) ? s : b, prevSets[0]) : null
     const delta = prevTop && top.weight_prescribed_kg != null && prevTop.weight_prescribed_kg != null
       ? top.weight_prescribed_kg - prevTop.weight_prescribed_kg
+      : null
+    const deltaPct = delta != null && prevTop?.weight_prescribed_kg
+      ? (delta / prevTop.weight_prescribed_kg) * 100
       : null
     return {
       pWeight: top.weight_prescribed_kg,
@@ -1029,8 +1142,11 @@ function ProgTable({
       aReps: top.reps_actual,
       aRpe: top.rpe_actual,
       delta,
+      deltaPct,
     }
   }
+
+  const weeks = Array.from({ length: totalWeeks }, (_, i) => i + 1)
 
   return (
     <div className="border-t border-zinc-800">
@@ -1041,32 +1157,43 @@ function ProgTable({
         <span className="rounded-full bg-blue-900/30 px-2 py-0.5 text-[8px] font-bold text-blue-400 border border-blue-900/50">
           {block.name} · {totalWeeks} semaines
         </span>
+        <span className="ml-auto flex items-center gap-2 text-[8px] text-zinc-600">
+          <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-blue-400" /> prescrit</span>
+          <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-amber-400" /> réel</span>
+        </span>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[560px] border-collapse text-[9px]">
           <thead>
             <tr className="border-b border-zinc-800">
-              <th className="w-28 px-3 py-2 text-left font-bold uppercase tracking-wide text-zinc-600">
+              <th className="sticky left-0 z-10 w-28 bg-zinc-950 px-3 py-2 text-left font-bold uppercase tracking-wide text-zinc-600">
                 Exercice
               </th>
-              {Array.from({ length: totalWeeks }, (_, i) => i + 1).map(w => (
-                <th key={w} className="px-2 py-2 text-center font-bold uppercase tracking-wide"
-                  style={{ borderLeft: '1px solid #1f2b42' }}
-                >
-                  <div className={`${w === activeWeek ? 'text-blue-400' : 'text-zinc-600'}`}>
-                    S{w}
-                    {w === activeWeek && (
-                      <span className="ml-1 rounded-full bg-blue-900/30 px-1 py-0.5 text-[7px] text-blue-400">
-                        ←
-                      </span>
+              {weeks.map(w => {
+                const isCurrent = w === activeWeek
+                const isPlanned = w > activeWeek
+                return (
+                  <th key={w} className="px-2 py-2 text-center font-bold uppercase tracking-wide"
+                    style={{
+                      borderLeft: '1px solid #1f2b42',
+                      borderBottom: isCurrent ? '2px solid #3b82f6' : undefined,
+                    }}
+                  >
+                    <div className={isCurrent ? 'text-blue-400' : 'text-zinc-600'}>
+                      S{w}
+                      {isCurrent && (
+                        <span className="ml-1 rounded-full bg-blue-900/30 px-1 py-0.5 text-[7px] text-blue-400">
+                          ←
+                        </span>
+                      )}
+                    </div>
+                    {isPlanned && (
+                      <div className="text-[7px] italic text-zinc-700">planifié</div>
                     )}
-                  </div>
-                  {w > totalWeeks / 2 + 0.5 && (
-                    <div className="text-[7px] text-zinc-700">planifié</div>
-                  )}
-                </th>
-              ))}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
@@ -1074,8 +1201,8 @@ function ProgTable({
               const cat = guessCategory(exo)
               const color = catColor(cat)
               return (
-                <tr key={exo} className="border-b border-zinc-800/50 hover:bg-zinc-800/20 transition-colors">
-                  <td className="px-3 py-2">
+                <tr key={exo} className="group border-b border-zinc-800/50 hover:bg-zinc-800/20 transition-colors">
+                  <td className="sticky left-0 z-10 bg-zinc-950 px-3 py-2 transition-colors group-hover:bg-zinc-900">
                     <div className="flex items-center gap-1.5">
                       <div className="h-2 w-0.5 rounded-full flex-shrink-0" style={{ background: color }} />
                       <span className="truncate font-semibold text-zinc-300" style={{ maxWidth: 90 }}>
@@ -1083,7 +1210,7 @@ function ProgTable({
                       </span>
                     </div>
                   </td>
-                  {Array.from({ length: totalWeeks }, (_, i) => i + 1).map(w => {
+                  {weeks.map(w => {
                     const s = getWeekSummary(exo, w)
                     const isCurrent = w === activeWeek
                     const isPast = w < activeWeek
@@ -1114,13 +1241,15 @@ function ProgTable({
                             )}
                             {/* Delta */}
                             {s.delta != null && s.delta !== 0 && (
-                              <div className={`text-[8px] font-bold ${s.delta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {s.delta > 0 ? '+' : ''}{s.delta}kg
+                              <div className={`flex items-center gap-0.5 text-[8px] font-bold ${s.delta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                <span>{s.delta > 0 ? '↑' : '↓'}</span>
+                                <span>{s.delta > 0 ? '+' : ''}{s.delta}kg</span>
+                                {s.deltaPct != null && (
+                                  <span className="text-zinc-600">
+                                    ({s.deltaPct > 0 ? '+' : ''}{s.deltaPct.toFixed(1)}%)
+                                  </span>
+                                )}
                               </div>
-                            )}
-                            {/* Planned indicator */}
-                            {!isPast && !isCurrent && (
-                              <div className="text-[7px] text-zinc-700 italic">planifié</div>
                             )}
                           </div>
                         )}
